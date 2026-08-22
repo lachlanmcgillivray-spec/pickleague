@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pick League</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="scoreboard">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueName">THE PICK LEAGUE</p>
+    <h1 class="week-display" id="weekDisplay">Loading&hellip;</h1>
+    <nav class="nav-row">
+      <a class="nav-link current" href="index.html">Make Picks</a>
+      <a class="nav-link" href="standings.html">Standings</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div class="card">
+    <h2 class="section-title">Who are you?</h2>
+    <div class="player-select-row">
+      <select id="playerSelect">
+        <option value="">Choose your name&hellip;</option>
+      </select>
+      <button class="secondary" id="lockBtn" style="display:none;" type="button">Not you? Lock</button>
+    </div>
+
+    <div id="pinGate"></div>
+
+    <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
+
+    <p class="muted" style="margin:0 0 8px;">New to the league?</p>
+    <div class="player-select-row">
+      <input type="text" id="newPlayerName" placeholder="Your name">
+      <input type="text" id="newPlayerPin" placeholder="Set a 6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+      <input type="text" id="newPlayerPinConfirm" placeholder="Confirm PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+      <button id="joinBtn">Join league</button>
+    </div>
+    <div id="joinBanner"></div>
+  </div>
+
+  <div class="card" id="weekPickerCard" style="display:none;">
+    <h2 class="section-title">Which week?</h2>
+    <div class="player-select-row">
+      <select id="weekSelect"></select>
+    </div>
+  </div>
+
+  <div id="banner"></div>
+
+  <div id="gamesArea"></div>
+
+  <div id="saveRow" style="display:none; text-align:center; margin-top: 10px;">
+    <button id="saveBtn" class="amber">Save my picks</button>
+  </div>
+
+</main>
+
+<p class="footer-note">🏈 May the best picker win.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+let currentPlayerId = '';
+let currentPlayer = null;   // full player doc { id, name, pinHash }
+let currentPinHash = '';    // the verified hash, attached to every pick save
+let players = [];
+let currentWeek = null;
+let localPicks = {}; // gameId -> 'away' | 'home'
+
+async function init() {
+  document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
+  await ensureSignedIn();
+
+  await refreshPlayers();
+  await refreshWeeks();
+
+  document.getElementById('joinBtn').addEventListener('click', onJoin);
+  document.getElementById('playerSelect').addEventListener('change', onPlayerChange);
+  document.getElementById('weekSelect').addEventListener('change', onWeekChange);
+  document.getElementById('saveBtn').addEventListener('click', onSave);
+  document.getElementById('lockBtn').addEventListener('click', onLockDevice);
+
+  const savedId = LocalPlayer.get();
+  if (savedId) {
+    document.getElementById('playerSelect').value = savedId;
+    onPlayerChange();
+  }
+}
+
+async function refreshPlayers() {
+  players = await getPlayers();
+  const sel = document.getElementById('playerSelect');
+  const prev = sel.value;
+  sel.innerHTML = '<option value="">Choose your name&hellip;</option>' +
+    players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  if (prev) sel.value = prev;
+}
+
+async function refreshWeeks() {
+  const weeks = await getWeeks();
+  const sel = document.getElementById('weekSelect');
+
+  if (weeks.length === 0) {
+    document.getElementById('weekDisplay').textContent = 'No weeks yet';
+    document.getElementById('banner').innerHTML =
+      `<div class="banner info">The admin hasn't set up any weeks yet. Check back soon!</div>`;
+    return;
+  }
+
+  sel.innerHTML = weeks.map(w =>
+    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? ' (locked)' : ''}</option>`
+  ).join('');
+
+  // Default to the last *unlocked* week, else the most recent week.
+  const unlocked = [...weeks].reverse().find(w => !w.locked);
+  const defaultWeek = unlocked || weeks[weeks.length - 1];
+  sel.value = defaultWeek.id;
+
+  document.getElementById('weekPickerCard').style.display = weeks.length > 1 ? 'block' : 'none';
+  await loadWeek(defaultWeek.id);
+}
+
+async function onJoin() {
+  const nameInput = document.getElementById('newPlayerName');
+  const pinInput = document.getElementById('newPlayerPin');
+  const pinConfirmInput = document.getElementById('newPlayerPinConfirm');
+  const banner = document.getElementById('joinBanner');
+  banner.innerHTML = '';
+
+  const name = nameInput.value.trim();
+  const pin = pinInput.value.trim();
+  const pinConfirm = pinConfirmInput.value.trim();
+
+  if (!isValidPin(pin)) {
+    banner.innerHTML = `<div class="banner error">PIN must be exactly 6 digits.</div>`;
+    return;
+  }
+  if (pin !== pinConfirm) {
+    banner.innerHTML = `<div class="banner error">PINs don't match.</div>`;
+    return;
+  }
+
+  try {
+    const id = await createPlayer(name, pin);
+    UnlockedPlayers.unlock(id);
+    await refreshPlayers();
+    document.getElementById('playerSelect').value = id;
+    nameInput.value = '';
+    pinInput.value = '';
+    pinConfirmInput.value = '';
+    await onPlayerChange();
+  } catch (e) {
+    banner.innerHTML = `<div class="banner error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function onPlayerChange() {
+  currentPlayerId = document.getElementById('playerSelect').value;
+  currentPinHash = '';
+  currentPlayer = players.find(p => p.id === currentPlayerId) || null;
+
+  document.getElementById('lockBtn').style.display = 'none';
+
+  if (currentPlayerId) LocalPlayer.set(currentPlayerId);
+
+  if (!currentPlayer) {
+    renderPinGate();
+    renderGames();
+    return;
+  }
+
+  if (!currentPlayer.pinHash) {
+    // No PIN set yet (shouldn't normally happen, but covers an admin PIN reset).
+    renderPinGate('set');
+    renderGames();
+    return;
+  }
+
+  if (UnlockedPlayers.isUnlocked(currentPlayer.id)) {
+    currentPinHash = currentPlayer.pinHash;
+    document.getElementById('lockBtn').style.display = 'inline-block';
+    renderPinGate();
+    if (currentWeek) await loadPickState();
+    else renderGames();
+    return;
+  }
+
+  renderPinGate('verify');
+  renderGames();
+}
+
+function onLockDevice() {
+  if (currentPlayer) UnlockedPlayers.lock(currentPlayer.id);
+  currentPinHash = '';
+  document.getElementById('playerSelect').value = '';
+  onPlayerChange();
+}
+
+function renderPinGate(mode) {
+  const el = document.getElementById('pinGate');
+  if (!mode) { el.innerHTML = ''; return; }
+
+  if (mode === 'verify') {
+    el.innerHTML = `
+      <div class="banner info">
+        Enter <strong>${escapeHtml(currentPlayer.name)}</strong>'s 6-digit PIN to make picks.
+      </div>
+      <div class="player-select-row">
+        <input type="text" id="pinInput" placeholder="6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+        <button id="unlockBtn">Unlock</button>
+      </div>
+      <div id="pinBanner"></div>`;
+    document.getElementById('unlockBtn').addEventListener('click', onUnlock);
+    document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') onUnlock(); });
+  } else if (mode === 'set') {
+    el.innerHTML = `
+      <div class="banner warn">
+        ${escapeHtml(currentPlayer.name)} doesn't have a PIN set yet — create one now.
+      </div>
+      <div class="player-select-row">
+        <input type="text" id="setPinInput" placeholder="New 6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+        <input type="text" id="setPinConfirmInput" placeholder="Confirm PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+        <button id="setPinBtn">Set PIN</button>
+      </div>
+      <div id="pinBanner"></div>`;
+    document.getElementById('setPinBtn').addEventListener('click', onSetPin);
+  }
+}
+
+async function onUnlock() {
+  const pin = document.getElementById('pinInput').value.trim();
+  const banner = document.getElementById('pinBanner');
+  const ok = await verifyPlayerPin(currentPlayer, pin);
+  if (!ok) {
+    banner.innerHTML = `<div class="banner error">That PIN doesn't match. Try again.</div>`;
+    return;
+  }
+  UnlockedPlayers.unlock(currentPlayer.id);
+  currentPinHash = currentPlayer.pinHash;
+  document.getElementById('lockBtn').style.display = 'inline-block';
+  renderPinGate();
+  if (currentWeek) await loadPickState();
+  else renderGames();
+}
+
+async function onSetPin() {
+  const pin = document.getElementById('setPinInput').value.trim();
+  const confirmPin = document.getElementById('setPinConfirmInput').value.trim();
+  const banner = document.getElementById('pinBanner');
+  if (!isValidPin(pin)) {
+    banner.innerHTML = `<div class="banner error">PIN must be exactly 6 digits.</div>`;
+    return;
+  }
+  if (pin !== confirmPin) {
+    banner.innerHTML = `<div class="banner error">PINs don't match.</div>`;
+    return;
+  }
+  try {
+    const pinHash = await setPlayerPin(currentPlayer, pin);
+    currentPlayer.pinHash = pinHash;
+    UnlockedPlayers.unlock(currentPlayer.id);
+    currentPinHash = pinHash;
+    document.getElementById('lockBtn').style.display = 'inline-block';
+    renderPinGate();
+    if (currentWeek) await loadPickState();
+    else renderGames();
+  } catch (e) {
+    banner.innerHTML = `<div class="banner error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function onWeekChange() {
+  await loadWeek(document.getElementById('weekSelect').value);
+}
+
+async function loadWeek(weekId) {
+  currentWeek = await getWeek(weekId);
+  if (!currentWeek) return;
+  document.getElementById('weekDisplay').innerHTML =
+    `<span class="digits">${escapeHtml(currentWeek.label || ('WEEK ' + currentWeek.weekNumber))}</span>`;
+  await loadPickState();
+}
+
+async function loadPickState() {
+  localPicks = {};
+  if (currentPlayerId && currentWeek && currentPinHash) {
+    const existing = await getPick(currentWeek.id, currentPlayerId);
+    if (existing) localPicks = { ...existing.picks };
+  }
+  renderGames();
+}
+
+function renderGames() {
+  const area = document.getElementById('gamesArea');
+  const banner = document.getElementById('banner');
+  const saveRow = document.getElementById('saveRow');
+  banner.innerHTML = '';
+
+  if (!currentWeek) { area.innerHTML = ''; saveRow.style.display = 'none'; return; }
+
+  if (!currentPlayerId) {
+    area.innerHTML = '';
+    saveRow.style.display = 'none';
+    showBanner('info', 'Pick your name above (or join the league) to make picks.');
+    return;
+  }
+
+  if (!currentPinHash) {
+    area.innerHTML = '';
+    saveRow.style.display = 'none';
+    return; // the PIN gate above is already showing what they need to do
+  }
+
+  const games = currentWeek.games || [];
+  if (games.length === 0) {
+    area.innerHTML = `<div class="empty-state"><span class="emoji">🏟️</span>No matchups posted for this week yet.</div>`;
+    saveRow.style.display = 'none';
+    return;
+  }
+
+  if (currentWeek.locked) {
+    showBanner('warn', 'Picks are locked for this week — here\'s how everyone did.');
+  }
+
+  area.innerHTML = games.map(g => {
+    const picked = localPicks[g.id];
+    const awaySelected = picked === 'away';
+    const homeSelected = picked === 'home';
+    const awayWon = g.winner === 'away';
+    const homeWon = g.winner === 'home';
+    const decided = !!g.winner;
+
+    const awayClasses = ['team-pick'];
+    const homeClasses = ['team-pick'];
+    if (awaySelected) awayClasses.push('selected');
+    if (homeSelected) homeClasses.push('selected');
+    if (decided && awayWon) awayClasses.push('winner');
+    if (decided && homeWon) homeClasses.push('winner');
+    if (decided && awaySelected && !awayWon) awayClasses.push('locked-wrong');
+    if (decided && homeSelected && !homeWon) homeClasses.push('locked-wrong');
+
+    return `
+      <div class="stub">
+        <div class="stub-header">
+          <span>${escapeHtml(g.away)} @ ${escapeHtml(g.home)}</span>
+          <span>${g.kickoff ? escapeHtml(g.kickoff) : ''}</span>
+        </div>
+        <div class="stub-body">
+          <button class="${awayClasses.join(' ')}" data-game="${g.id}" data-side="away" ${currentWeek.locked ? 'disabled' : ''}>
+            <span class="team-name">${escapeHtml(g.away)}</span>
+            <span class="team-sub">AWAY</span>
+          </button>
+          <button class="${homeClasses.join(' ')}" data-game="${g.id}" data-side="home" ${currentWeek.locked ? 'disabled' : ''}>
+            <span class="team-name">${escapeHtml(g.home)}</span>
+            <span class="team-sub">HOME</span>
+          </button>
+        </div>
+      </div>`;
+  }).join('');
+
+  area.querySelectorAll('.team-pick').forEach(btn => {
+    btn.addEventListener('click', () => {
+      localPicks[btn.dataset.game] = btn.dataset.side;
+      renderGames();
+    });
+  });
+
+  saveRow.style.display = currentWeek.locked ? 'none' : 'block';
+}
+
+async function onSave() {
+  if (!currentPlayerId || !currentWeek || !currentPinHash) return;
+  const playerName = document.getElementById('playerSelect').selectedOptions[0].textContent;
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = 'Saving\u2026';
+  try {
+    await savePick(currentWeek.id, currentPlayerId, playerName, localPicks, currentPinHash);
+    showBanner('success', 'Picks saved! Good luck. 🏈');
+  } catch (e) {
+    showBanner('error', 'Could not save: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Save my picks';
+  }
+}
+
+function showBanner(type, text) {
+  document.getElementById('banner').innerHTML = `<div class="banner ${type}">${escapeHtml(text)}</div>`;
+}
+
+init();
+</script>
+</body>
+</html>

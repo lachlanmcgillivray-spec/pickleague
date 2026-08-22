@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Standings — Pick League</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="scoreboard">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueName">THE PICK LEAGUE</p>
+    <h1 class="week-display"><span class="digits">STANDINGS</span></h1>
+    <nav class="nav-row">
+      <a class="nav-link" href="index.html">Make Picks</a>
+      <a class="nav-link current" href="standings.html">Standings</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <h2 class="section-title">Season leaderboard</h2>
+  <ul class="standings-list" id="standingsList"></ul>
+
+  <div id="weekBreakdown"></div>
+</main>
+
+<p class="footer-note">🏈 Records only count games with a winner set.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+async function init() {
+  document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
+  await ensureSignedIn();
+
+  const [weeks, allPicks] = await Promise.all([getWeeks(), getAllPicks()]);
+  renderStandings(computeStandings(weeks, allPicks));
+  renderWeekBreakdown(weeks);
+}
+
+function renderStandings(standings) {
+  const list = document.getElementById('standingsList');
+  if (standings.length === 0) {
+    list.innerHTML = `<div class="empty-state"><span class="emoji">📋</span>No picks scored yet. Once games get results, standings show up here.</div>`;
+    return;
+  }
+  list.innerHTML = standings.map((s, i) => `
+    <li class="standings-row">
+      <div class="jersey-num">${i + 1}</div>
+      <div class="standings-name">${escapeHtml(s.playerName)}</div>
+      <div class="standings-record">${s.wins}<span class="lost">-${s.losses}</span></div>
+    </li>
+  `).join('');
+}
+
+function renderWeekBreakdown(weeks) {
+  const decidedWeeks = weeks.filter(w => (w.games || []).some(g => g.winner));
+  if (decidedWeeks.length === 0) return;
+
+  const html = decidedWeeks.map(w => {
+    const rows = (w.games || []).filter(g => g.winner).map(g => {
+      const winnerName = g.winner === 'away' ? g.away : g.home;
+      return `<div class="muted">${escapeHtml(g.away)} @ ${escapeHtml(g.home)} — <strong>${escapeHtml(winnerName)}</strong> won</div>`;
+    }).join('');
+    return `<div class="card"><h2 class="section-title">${escapeHtml(w.label || ('Week ' + w.weekNumber))} results</h2>${rows}</div>`;
+  }).join('');
+
+  document.getElementById('weekBreakdown').innerHTML =
+    `<h2 class="section-title" style="margin-top:28px;">Results by week</h2>` + html;
+}
+
+init();
+</script>
+</body>
+</html>

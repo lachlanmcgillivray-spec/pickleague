@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Pick League</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="scoreboard">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueName">THE PICK LEAGUE</p>
+    <h1 class="week-display"><span class="digits">ADMIN</span></h1>
+    <nav class="nav-row">
+      <a class="nav-link" href="index.html">Make Picks</a>
+      <a class="nav-link" href="standings.html">Standings</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <div id="loginCard" class="card">
+    <h2 class="section-title">Admin sign in</h2>
+    <p class="muted">Use the admin account you created in Firebase Authentication.</p>
+    <div class="player-select-row">
+      <input type="email" id="adminEmail" placeholder="Email">
+      <input type="password" id="adminPassword" placeholder="Password">
+      <button id="loginBtn">Sign in</button>
+    </div>
+    <div id="loginBanner"></div>
+  </div>
+
+  <div id="adminArea" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="muted">Signed in as <strong id="adminEmailDisplay"></strong></span>
+        <button class="secondary" id="logoutBtn">Sign out</button>
+      </div>
+    </div>
+
+    <h2 class="section-title">Weeks</h2>
+    <div id="weeksList"></div>
+
+    <div class="card">
+      <h2 class="section-title" id="editorTitle">Create a new week</h2>
+      <div class="player-select-row">
+        <input type="text" id="weekNumberInput" placeholder="Week number, e.g. 3" style="max-width:140px;">
+        <input type="text" id="weekLabelInput" placeholder="Label (optional, e.g. Week 3)">
+        <label style="display:flex; align-items:center; gap:6px; font-size:14px;">
+          <input type="checkbox" id="weekLockedInput" style="width:auto;"> Locked (picks frozen)
+        </label>
+      </div>
+
+      <div id="gameRows"></div>
+      <button class="secondary" id="addGameBtn" type="button">+ Add matchup</button>
+
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button id="saveWeekBtn" class="amber">Save week</button>
+        <button id="cancelEditBtn" class="secondary" style="display:none;" type="button">Cancel edit</button>
+        <button id="deleteWeekBtn" class="danger" style="display:none;" type="button">Delete week</button>
+      </div>
+      <div id="editorBanner"></div>
+    </div>
+
+    <h2 class="section-title">Roster</h2>
+    <div class="card" id="rosterCard"></div>
+  </div>
+
+</main>
+
+<p class="footer-note">🏈 Admin tools — keep this link to yourself.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+let editingWeekId = null; // null = creating a new week
+let gameRows = []; // { id, away, home, kickoff, winner }
+
+function newGameId() {
+  return 'g_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+async function init() {
+  document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
+
+  auth.onAuthStateChanged(user => {
+    const isAdmin = user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email);
+    document.getElementById('loginCard').style.display = isAdmin ? 'none' : 'block';
+    document.getElementById('adminArea').style.display = isAdmin ? 'block' : 'none';
+    if (isAdmin) {
+      document.getElementById('adminEmailDisplay').textContent = user.email;
+      loadWeeks();
+      loadRoster();
+    }
+  });
+
+  document.getElementById('loginBtn').addEventListener('click', onLogin);
+  document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+  document.getElementById('addGameBtn').addEventListener('click', () => {
+    gameRows.push({ id: newGameId(), away: '', home: '', kickoff: '', winner: '' });
+    renderGameRows();
+  });
+  document.getElementById('saveWeekBtn').addEventListener('click', onSaveWeek);
+  document.getElementById('cancelEditBtn').addEventListener('click', resetEditor);
+  document.getElementById('deleteWeekBtn').addEventListener('click', onDeleteWeek);
+
+  resetEditor();
+}
+
+async function onLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const password = document.getElementById('adminPassword').value;
+  const banner = document.getElementById('loginBanner');
+  banner.innerHTML = '';
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+  } catch (e) {
+    banner.innerHTML = `<div class="banner error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function loadWeeks() {
+  const weeks = await getWeeks();
+  const container = document.getElementById('weeksList');
+  if (weeks.length === 0) {
+    container.innerHTML = `<div class="empty-state"><span class="emoji">🗓️</span>No weeks yet — create one below.</div>`;
+    return;
+  }
+  container.innerHTML = weeks.map(w => `
+    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <strong>${escapeHtml(w.label || ('Week ' + w.weekNumber))}</strong>
+        <span class="muted"> — ${(w.games || []).length} matchup(s)${w.locked ? ' · locked' : ''}</span>
+      </div>
+      <button class="secondary" data-week="${w.id}">Edit</button>
+    </div>
+  `).join('');
+  container.querySelectorAll('button[data-week]').forEach(btn => {
+    btn.addEventListener('click', () => loadWeekIntoEditor(btn.dataset.week, weeks));
+  });
+}
+
+function loadWeekIntoEditor(weekId, weeks) {
+  const w = weeks.find(x => x.id === weekId);
+  if (!w) return;
+  editingWeekId = weekId;
+  document.getElementById('editorTitle').textContent = 'Edit ' + (w.label || ('Week ' + w.weekNumber));
+  document.getElementById('weekNumberInput').value = w.weekNumber ?? '';
+  document.getElementById('weekLabelInput').value = w.label ?? '';
+  document.getElementById('weekLockedInput').checked = !!w.locked;
+  gameRows = (w.games || []).map(g => ({ ...g }));
+  renderGameRows();
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  document.getElementById('deleteWeekBtn').style.display = 'inline-block';
+  window.scrollTo({ top: document.getElementById('editorTitle').offsetTop - 20, behavior: 'smooth' });
+}
+
+function resetEditor() {
+  editingWeekId = null;
+  document.getElementById('editorTitle').textContent = 'Create a new week';
+  document.getElementById('weekNumberInput').value = '';
+  document.getElementById('weekLabelInput').value = '';
+  document.getElementById('weekLockedInput').checked = false;
+  gameRows = [];
+  renderGameRows();
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('deleteWeekBtn').style.display = 'none';
+  document.getElementById('editorBanner').innerHTML = '';
+}
+
+function renderGameRows() {
+  const container = document.getElementById('gameRows');
+  if (gameRows.length === 0) {
+    container.innerHTML = `<p class="muted">No matchups added yet.</p>`;
+    return;
+  }
+  container.innerHTML = gameRows.map((g, i) => `
+    <div class="admin-game-row">
+      <input type="text" placeholder="Away team" value="${escapeHtml(g.away)}" data-idx="${i}" data-field="away">
+      <input type="text" placeholder="Home team" value="${escapeHtml(g.home)}" data-idx="${i}" data-field="home">
+      <select data-idx="${i}" data-field="winner">
+        <option value="">No winner yet</option>
+        <option value="away" ${g.winner === 'away' ? 'selected' : ''}>Away won</option>
+        <option value="home" ${g.winner === 'home' ? 'selected' : ''}>Home won</option>
+      </select>
+      <button class="danger" type="button" data-remove="${i}">✕</button>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', () => {
+      gameRows[el.dataset.idx][el.dataset.field] = el.value;
+    });
+  });
+  container.querySelectorAll('button[data-remove]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      gameRows.splice(Number(btn.dataset.remove), 1);
+      renderGameRows();
+    });
+  });
+}
+
+async function onSaveWeek() {
+  const banner = document.getElementById('editorBanner');
+  const weekNumber = Number(document.getElementById('weekNumberInput').value);
+  if (!weekNumber) {
+    banner.innerHTML = `<div class="banner error">Enter a week number.</div>`;
+    return;
+  }
+  const cleanGames = gameRows
+    .filter(g => g.away.trim() && g.home.trim())
+    .map(g => ({ id: g.id, away: g.away.trim(), home: g.home.trim(), kickoff: (g.kickoff || '').trim(), winner: g.winner || null }));
+
+  const data = {
+    weekNumber,
+    label: document.getElementById('weekLabelInput').value.trim() || `Week ${weekNumber}`,
+    locked: document.getElementById('weekLockedInput').checked,
+    games: cleanGames
+  };
+
+  try {
+    editingWeekId = await saveWeek(editingWeekId, data);
+    banner.innerHTML = `<div class="banner success">Saved!</div>`;
+    await loadWeeks();
+  } catch (e) {
+    banner.innerHTML = `<div class="banner error">${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function onDeleteWeek() {
+  if (!editingWeekId) return;
+  if (!confirm('Delete this whole week, including its matchups? This cannot be undone.')) return;
+  await deleteWeek(editingWeekId);
+  resetEditor();
+  await loadWeeks();
+}
+
+async function loadRoster() {
+  const players = await getPlayers();
+  const card = document.getElementById('rosterCard');
+  if (players.length === 0) {
+    card.innerHTML = `<p class="muted">No one has joined yet.</p>`;
+    return;
+  }
+  card.innerHTML = `<p class="muted" style="margin-top:0;">If a kid forgets their PIN, reset it here — they'll be asked to set a new one next time they pick.</p>` +
+    players.map(p => `
+      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line);">
+        <span>${escapeHtml(p.name)}</span>
+        <button class="secondary" data-reset="${p.id}" type="button">Reset PIN</button>
+      </div>
+    `).join('');
+
+  card.querySelectorAll('button[data-reset]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Reset the PIN for ${btn.previousElementSibling.textContent}? They'll need to set a new one.`)) return;
+      await db.collection('players').doc(btn.dataset.reset).update({ pinHash: firebase.firestore.FieldValue.delete() });
+      alert('PIN reset. They can set a new one next time they pick.');
+    });
+  });
+}
+
+init();
+</script>
+</body>
+</html>
