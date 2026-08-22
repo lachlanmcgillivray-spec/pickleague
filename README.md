@@ -6,9 +6,9 @@ Because GitHub Pages only serves files (it can't run a database), this uses **Fi
 
 ## What the site does
 
-- **Make Picks** (`index.html`) — a kid types their name once, then picks a winner for each game each week.
-- **Standings** (`standings.html`) — automatic leaderboard, plus a week-by-week results log.
-- **Admin** (`admin.html`) — where *you* create each week's matchups and enter the real winners after games finish. Sign-in protected.
+- **Make Picks** (`index.html`) — each kid picks a fun team name for the season, then each week taps **3 NFL teams** they think will win. 1 point per correct pick, +1 bonus point for a perfect 3-for-3 week.
+- **Standings** (`standings.html`) — automatic season leaderboard by total points, plus a week-by-week results log, and the "Cupcake Supreme" prize callout.
+- **Admin** (`admin.html`) — where *you* create each week's matchups and enter the real winners after games finish. Sign-in protected. (This part is unchanged — the admin still enters full matchups; kids just pick 3 winning teams from that list, not a winner for every game.)
 
 ## Step 1 — Create a free Firebase project
 

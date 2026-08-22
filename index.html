@@ -9,9 +9,11 @@
 <body>
 
 <header class="scoreboard">
+  <div class="confetti" aria-hidden="true"></div>
   <div class="scoreboard-inner">
-    <p class="league-name" id="leagueName">THE PICK LEAGUE</p>
+    <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display" id="weekDisplay">Loading&hellip;</h1>
+    <p class="league-tagline" id="leagueName">THE PICK LEAGUE</p>
     <nav class="nav-row">
       <a class="nav-link current" href="index.html">Make Picks</a>
       <a class="nav-link" href="standings.html">Standings</a>
@@ -25,7 +27,7 @@
     <h2 class="section-title">Who are you?</h2>
     <div class="player-select-row">
       <select id="playerSelect">
-        <option value="">Choose your name&hellip;</option>
+        <option value="">Choose your team name&hellip;</option>
       </select>
       <button class="secondary" id="lockBtn" style="display:none;" type="button">Not you? Lock</button>
     </div>
@@ -34,9 +36,9 @@
 
     <hr style="border:none; border-top:1px solid var(--line); margin:18px 0;">
 
-    <p class="muted" style="margin:0 0 8px;">New to the league?</p>
+    <p class="muted" style="margin:0 0 8px;">New to the league? Pick a fun team name for the season &mdash; funny, weird, intimidating, whatever you like!</p>
     <div class="player-select-row">
-      <input type="text" id="newPlayerName" placeholder="Your name">
+      <input type="text" id="newPlayerName" placeholder="Your team name">
       <input type="text" id="newPlayerPin" placeholder="Set a 6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
       <input type="text" id="newPlayerPinConfirm" placeholder="Confirm PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
       <button id="joinBtn">Join league</button>
@@ -53,15 +55,30 @@
 
   <div id="banner"></div>
 
+  <div id="pickCounterRow" style="display:none;">
+    <div class="pick-counter" id="pickCounter">Pick 3 teams &mdash; 0 of 3 selected</div>
+  </div>
+
   <div id="gamesArea"></div>
 
   <div id="saveRow" style="display:none; text-align:center; margin-top: 10px;">
-    <button id="saveBtn" class="amber">Save my picks</button>
+    <button id="saveBtn" class="amber">Save my 3 picks</button>
+  </div>
+
+  <div class="card how-it-works-card">
+    <h2 class="section-title">🏆 How it works</h2>
+    <ul class="rules-list">
+      <li>Every week, choose the <strong>3 teams</strong> you think will win.</li>
+      <li>Each correct pick = <strong>1 point</strong>.</li>
+      <li>Get all 3 right in a week and score a <strong>+1 bonus point</strong>!</li>
+      <li>No entry fee. No eliminations. Just picks &amp; fun.</li>
+    </ul>
+    <p class="muted" style="margin-top:10px;">🧁 Most points at the end of the season becomes <strong>The Cupcake Supreme</strong> &mdash; there can be only one!</p>
   </div>
 
 </main>
 
-<p class="footer-note">🏈 May the best picker win.</p>
+<p class="footer-note">🏈 3 teams. Every week. One giant cupcake cake.</p>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -74,7 +91,7 @@ let currentPlayer = null;   // full player doc { id, name, pinHash }
 let currentPinHash = '';    // the verified hash, attached to every pick save
 let players = [];
 let currentWeek = null;
-let localPicks = {}; // gameId -> 'away' | 'home'
+let selectedTeams = []; // up to 3 team names
 
 async function init() {
   document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
@@ -100,7 +117,7 @@ async function refreshPlayers() {
   players = await getPlayers();
   const sel = document.getElementById('playerSelect');
   const prev = sel.value;
-  sel.innerHTML = '<option value="">Choose your name&hellip;</option>' +
+  sel.innerHTML = '<option value="">Choose your team name&hellip;</option>' +
     players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
   if (prev) sel.value = prev;
 }
@@ -291,10 +308,10 @@ async function loadWeek(weekId) {
 }
 
 async function loadPickState() {
-  localPicks = {};
+  selectedTeams = [];
   if (currentPlayerId && currentWeek && currentPinHash) {
     const existing = await getPick(currentWeek.id, currentPlayerId);
-    if (existing) localPicks = { ...existing.picks };
+    if (existing) selectedTeams = [...(existing.pickedTeams || [])];
   }
   renderGames();
 }
@@ -303,94 +320,112 @@ function renderGames() {
   const area = document.getElementById('gamesArea');
   const banner = document.getElementById('banner');
   const saveRow = document.getElementById('saveRow');
+  const counterRow = document.getElementById('pickCounterRow');
   banner.innerHTML = '';
 
-  if (!currentWeek) { area.innerHTML = ''; saveRow.style.display = 'none'; return; }
+  if (!currentWeek) { area.innerHTML = ''; saveRow.style.display = 'none'; counterRow.style.display = 'none'; return; }
 
   if (!currentPlayerId) {
     area.innerHTML = '';
     saveRow.style.display = 'none';
-    showBanner('info', 'Pick your name above (or join the league) to make picks.');
+    counterRow.style.display = 'none';
+    showBanner('info', 'Pick your team name above (or join the league) to make picks.');
     return;
   }
 
   if (!currentPinHash) {
     area.innerHTML = '';
     saveRow.style.display = 'none';
+    counterRow.style.display = 'none';
     return; // the PIN gate above is already showing what they need to do
   }
 
-  const games = currentWeek.games || [];
-  if (games.length === 0) {
+  const teams = getWeekTeams(currentWeek);
+  if (teams.length === 0) {
     area.innerHTML = `<div class="empty-state"><span class="emoji">🏟️</span>No matchups posted for this week yet.</div>`;
     saveRow.style.display = 'none';
+    counterRow.style.display = 'none';
     return;
   }
 
   if (currentWeek.locked) {
     showBanner('warn', 'Picks are locked for this week — here\'s how everyone did.');
+    const existingPickForScore = { pickedTeams: selectedTeams };
+    const score = scorePick(existingPickForScore, currentWeek);
+    if (selectedTeams.length === 3) {
+      showBanner(score.anyPending ? 'info' : 'success',
+        score.anyPending
+          ? `Your picks: ${selectedTeams.join(', ')} — waiting on results.`
+          : `You scored ${score.points} point${score.points === 1 ? '' : 's'} this week${score.bonus ? ' (nice, perfect week bonus!)' : ''}.`);
+    }
   }
 
-  area.innerHTML = games.map(g => {
-    const picked = localPicks[g.id];
-    const awaySelected = picked === 'away';
-    const homeSelected = picked === 'home';
-    const awayWon = g.winner === 'away';
-    const homeWon = g.winner === 'home';
-    const decided = !!g.winner;
+  counterRow.style.display = 'block';
+  updatePickCounter();
 
-    const awayClasses = ['team-pick'];
-    const homeClasses = ['team-pick'];
-    if (awaySelected) awayClasses.push('selected');
-    if (homeSelected) homeClasses.push('selected');
-    if (decided && awayWon) awayClasses.push('winner');
-    if (decided && homeWon) homeClasses.push('winner');
-    if (decided && awaySelected && !awayWon) awayClasses.push('locked-wrong');
-    if (decided && homeSelected && !homeWon) homeClasses.push('locked-wrong');
+  area.innerHTML = `<div class="team-grid">${teams.map(t => {
+    const selected = selectedTeams.includes(t.team);
+    const decided = currentWeek.games.find(g => g.id === t.gameId)?.winner;
+    const won = decided === t.side;
+    const classes = ['team-tile'];
+    if (selected) classes.push('selected');
+    if (decided && won) classes.push('winner');
+    if (decided && selected && !won) classes.push('locked-wrong');
+    const disableTile = currentWeek.locked || (!selected && selectedTeams.length >= 3);
 
     return `
-      <div class="stub">
-        <div class="stub-header">
-          <span>${escapeHtml(g.away)} @ ${escapeHtml(g.home)}</span>
-          <span>${g.kickoff ? escapeHtml(g.kickoff) : ''}</span>
-        </div>
-        <div class="stub-body">
-          <button class="${awayClasses.join(' ')}" data-game="${g.id}" data-side="away" ${currentWeek.locked ? 'disabled' : ''}>
-            <span class="team-name">${escapeHtml(g.away)}</span>
-            <span class="team-sub">AWAY</span>
-          </button>
-          <button class="${homeClasses.join(' ')}" data-game="${g.id}" data-side="home" ${currentWeek.locked ? 'disabled' : ''}>
-            <span class="team-name">${escapeHtml(g.home)}</span>
-            <span class="team-sub">HOME</span>
-          </button>
-        </div>
-      </div>`;
-  }).join('');
+      <button class="${classes.join(' ')}" data-team="${escapeHtml(t.team)}" ${(currentWeek.locked || disableTile) && !selected ? 'disabled' : ''}>
+        ${decided && won ? '<span class="tile-crown">🏆</span>' : ''}
+        ${teamLogoImgTag(t.team, 44)}
+        <span class="tile-team-name">${escapeHtml(t.team)}</span>
+        <span class="tile-opponent">vs ${escapeHtml(t.opponent)}</span>
+      </button>`;
+  }).join('')}</div>`;
 
-  area.querySelectorAll('.team-pick').forEach(btn => {
-    btn.addEventListener('click', () => {
-      localPicks[btn.dataset.game] = btn.dataset.side;
-      renderGames();
+  if (!currentWeek.locked) {
+    area.querySelectorAll('.team-tile').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const team = btn.dataset.team;
+        if (selectedTeams.includes(team)) {
+          selectedTeams = selectedTeams.filter(t => t !== team);
+        } else if (selectedTeams.length < 3) {
+          selectedTeams.push(team);
+        }
+        renderGames();
+      });
     });
-  });
+  }
 
   saveRow.style.display = currentWeek.locked ? 'none' : 'block';
+  document.getElementById('saveBtn').disabled = selectedTeams.length !== 3;
+}
+
+function updatePickCounter() {
+  const counter = document.getElementById('pickCounter');
+  const n = selectedTeams.length;
+  counter.textContent = currentWeek.locked
+    ? `Your picks: ${selectedTeams.join(', ') || 'none submitted'}`
+    : `Pick 3 teams — ${n} of 3 selected${n === 3 ? ' ✅' : ''}`;
 }
 
 async function onSave() {
   if (!currentPlayerId || !currentWeek || !currentPinHash) return;
+  if (selectedTeams.length !== 3) {
+    showBanner('error', 'Pick exactly 3 teams before saving.');
+    return;
+  }
   const playerName = document.getElementById('playerSelect').selectedOptions[0].textContent;
   const btn = document.getElementById('saveBtn');
   btn.disabled = true;
   btn.textContent = 'Saving\u2026';
   try {
-    await savePick(currentWeek.id, currentPlayerId, playerName, localPicks, currentPinHash);
-    showBanner('success', 'Picks saved! Good luck. 🏈');
+    await savePick(currentWeek.id, currentPlayerId, playerName, selectedTeams, currentPinHash);
+    showBanner('success', 'Picks saved! Good luck. 🧁');
   } catch (e) {
     showBanner('error', 'Could not save: ' + e.message);
   } finally {
-    btn.disabled = false;
-    btn.textContent = 'Save my picks';
+    btn.disabled = selectedTeams.length !== 3;
+    btn.textContent = 'Save my 3 picks';
   }
 }
 

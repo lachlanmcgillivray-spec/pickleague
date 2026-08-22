@@ -10,8 +10,9 @@
 
 <header class="scoreboard">
   <div class="scoreboard-inner">
-    <p class="league-name" id="leagueName">THE PICK LEAGUE</p>
+    <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display"><span class="digits">ADMIN</span></h1>
+    <p class="league-tagline" id="leagueName">THE PICK LEAGUE</p>
     <nav class="nav-row">
       <a class="nav-link" href="index.html">Make Picks</a>
       <a class="nav-link" href="standings.html">Standings</a>
@@ -42,6 +43,27 @@
 
     <h2 class="section-title">Weeks</h2>
     <div id="weeksList"></div>
+
+    <div class="card">
+      <h2 class="section-title">Bulk import a schedule</h2>
+      <p class="muted">Paste one or more weeks at once instead of adding matchups by hand. Format:</p>
+      <pre style="background:var(--turf-light); padding:12px 14px; border-radius:8px; font-family:var(--font-mono); font-size:12px; white-space:pre-wrap; margin: 0 0 12px;">Week 1
+Patriots @ Seahawks
+49ers @ Rams
+Bears @ Panthers
+
+Week 2
+Chargers @ Chiefs
+...</pre>
+      <p class="muted">Each "Away @ Home" line becomes a matchup. Get real matchups from <a href="https://www.nfl.com/schedules/" target="_blank" rel="noopener">nfl.com/schedules</a> — copy the away/home teams for each game into this format. Importing a week number that already exists adds any new matchups to it without deleting what's there.</p>
+      <textarea id="bulkImportText" rows="10" style="width:100%; font-family:var(--font-mono); font-size:13px; padding:10px; border:2px solid var(--line); border-radius:10px;" placeholder="Week 1
+Patriots @ Seahawks
+49ers @ Rams"></textarea>
+      <div style="margin-top:12px;">
+        <button id="bulkImportBtn" class="amber" type="button">Import schedule</button>
+      </div>
+      <div id="bulkImportBanner"></div>
+    </div>
 
     <div class="card">
       <h2 class="section-title" id="editorTitle">Create a new week</h2>
@@ -108,8 +130,87 @@ async function init() {
   document.getElementById('saveWeekBtn').addEventListener('click', onSaveWeek);
   document.getElementById('cancelEditBtn').addEventListener('click', resetEditor);
   document.getElementById('deleteWeekBtn').addEventListener('click', onDeleteWeek);
+  document.getElementById('bulkImportBtn').addEventListener('click', onBulkImport);
 
   resetEditor();
+}
+
+/** Parses text like:
+ *  Week 1
+ *  Patriots @ Seahawks
+ *  49ers @ Rams
+ * into [{ weekNumber: 1, games: [{ away, home }, ...] }, ...]
+ */
+function parseScheduleText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const weeks = [];
+  let current = null;
+  for (const line of lines) {
+    const weekMatch = line.match(/^week\s*#?\s*(\d+)\b/i);
+    if (weekMatch) {
+      current = { weekNumber: Number(weekMatch[1]), games: [] };
+      weeks.push(current);
+      continue;
+    }
+    const gameMatch = line.match(/^(.+?)\s*@\s*(.+)$/);
+    if (gameMatch && current) {
+      current.games.push({ away: gameMatch[1].trim(), home: gameMatch[2].trim() });
+    }
+  }
+  return weeks;
+}
+
+async function onBulkImport() {
+  const banner = document.getElementById('bulkImportBanner');
+  const text = document.getElementById('bulkImportText').value;
+  const parsedWeeks = parseScheduleText(text);
+
+  if (parsedWeeks.length === 0) {
+    banner.innerHTML = `<div class="banner error">Couldn't find any "Week N" sections with "Away @ Home" lines. Check the format against the example above.</div>`;
+    return;
+  }
+
+  const btn = document.getElementById('bulkImportBtn');
+  btn.disabled = true;
+  btn.textContent = 'Importing\u2026';
+
+  try {
+    const existingWeeks = await getWeeks();
+    let weeksTouched = 0;
+    let gamesAdded = 0;
+
+    for (const parsed of parsedWeeks) {
+      const existing = existingWeeks.find(w => w.weekNumber === parsed.weekNumber);
+      const existingGames = existing ? [...existing.games] : [];
+
+      const newGames = parsed.games.filter(pg =>
+        !existingGames.some(eg =>
+          eg.away.toLowerCase() === pg.away.toLowerCase() &&
+          eg.home.toLowerCase() === pg.home.toLowerCase()
+        )
+      ).map(pg => ({ id: newGameId(), away: pg.away, home: pg.home, kickoff: '', winner: null }));
+
+      const data = {
+        weekNumber: parsed.weekNumber,
+        label: existing?.label || `Week ${parsed.weekNumber}`,
+        locked: existing?.locked || false,
+        games: [...existingGames, ...newGames]
+      };
+
+      await saveWeek(existing?.id || null, data);
+      weeksTouched += 1;
+      gamesAdded += newGames.length;
+    }
+
+    banner.innerHTML = `<div class="banner success">Imported ${gamesAdded} matchup(s) across ${weeksTouched} week(s).</div>`;
+    document.getElementById('bulkImportText').value = '';
+    await loadWeeks();
+  } catch (e) {
+    banner.innerHTML = `<div class="banner error">${escapeHtml(e.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Import schedule';
+  }
 }
 
 async function onLogin() {

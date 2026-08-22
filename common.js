@@ -123,9 +123,9 @@ async function getPick(weekId, playerId) {
   return doc.exists ? doc.data() : null;
 }
 
-async function savePick(weekId, playerId, playerName, picks, pinHash) {
+async function savePick(weekId, playerId, playerName, pickedTeams, pinHash) {
   await db.collection('picks').doc(pickDocId(weekId, playerId)).set({
-    weekId, playerId, playerName, picks, pinHash,
+    weekId, playerId, playerName, pickedTeams, pinHash,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 }
@@ -140,37 +140,107 @@ async function getAllPicks() {
   return snap.docs.map(d => d.data());
 }
 
+/** Every team playing in a given week, with who they're up against.
+ * Returns [{ team, opponent, gameId, side }], one entry per team (both sides of every game). */
+function getWeekTeams(week) {
+  const list = [];
+  (week.games || []).forEach(g => {
+    list.push({ team: g.away, opponent: g.home, gameId: g.id, side: 'away' });
+    list.push({ team: g.home, opponent: g.away, gameId: g.id, side: 'home' });
+  });
+  return list;
+}
+
+/** weekId -> { teamName: { decided, won } }, used to score picks. */
+function buildTeamResultsByWeek(weeks) {
+  const map = {};
+  weeks.forEach(w => {
+    const m = {};
+    (w.games || []).forEach(g => {
+      const decided = !!g.winner;
+      m[g.away] = { decided, won: g.winner === 'away' };
+      m[g.home] = { decided, won: g.winner === 'home' };
+    });
+    map[w.id] = m;
+  });
+  return map;
+}
+
 /**
- * Builds season standings from every week + every pick.
- * Only games with a `winner` set count toward the record.
- * Returns array sorted best-first: { playerId, playerName, wins, losses, played }
+ * Season standings: 1 point per correctly-picked team that won,
+ * plus a bonus point for a perfect 3-for-3 week.
+ * Only games with a winner set are counted (pending games score 0 either way).
+ * Returns array sorted best-first: { playerId, playerName, points }
  */
 function computeStandings(weeks, allPicks) {
-  const winnerByGame = {}; // gameId -> 'away' | 'home'
-  weeks.forEach(w => (w.games || []).forEach(g => {
-    if (g.winner) winnerByGame[g.id] = g.winner;
-  }));
+  const resultsByWeek = buildTeamResultsByWeek(weeks);
+  const totals = {};
 
-  const totals = {}; // playerId -> { playerName, wins, losses }
   allPicks.forEach(p => {
     if (!totals[p.playerId]) {
-      totals[p.playerId] = { playerId: p.playerId, playerName: p.playerName, wins: 0, losses: 0 };
+      totals[p.playerId] = { playerId: p.playerId, playerName: p.playerName, points: 0 };
     }
-    Object.entries(p.picks || {}).forEach(([gameId, pickedSide]) => {
-      const winner = winnerByGame[gameId];
-      if (!winner) return; // game not decided yet
-      if (pickedSide === winner) totals[p.playerId].wins += 1;
-      else totals[p.playerId].losses += 1;
+    const teams = p.pickedTeams || [];
+    const results = resultsByWeek[p.weekId] || {};
+    let correct = 0;
+    teams.forEach(team => {
+      const r = results[team];
+      if (r && r.decided && r.won) correct += 1;
     });
+    const bonus = (teams.length === 3 && correct === 3) ? 1 : 0;
+    totals[p.playerId].points += correct + bonus;
   });
 
   return Object.values(totals)
-    .map(t => ({ ...t, played: t.wins + t.losses }))
-    .sort((a, b) => (b.wins - a.wins) || (a.losses - b.losses) || a.playerName.localeCompare(b.playerName));
+    .sort((a, b) => b.points - a.points || a.playerName.localeCompare(b.playerName));
+}
+
+/** How many of a pick's teams were correct winners (for per-week display), plus bonus flag. */
+function scorePick(pick, week) {
+  const resultsByWeek = buildTeamResultsByWeek([week]);
+  const results = resultsByWeek[week.id] || {};
+  const teams = pick.pickedTeams || [];
+  let correct = 0;
+  teams.forEach(team => {
+    const r = results[team];
+    if (r && r.decided && r.won) correct += 1;
+  });
+  const anyPending = teams.some(team => !results[team] || !results[team].decided);
+  const bonus = (teams.length === 3 && correct === 3);
+  return { correct, bonus, points: correct + (bonus ? 1 : 0), anyPending };
 }
 
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, s => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   }[s]));
+}
+
+/** NFL nickname -> logo code, used to show a small team logo beside the name.
+ * Matches on the LAST word of whatever team name the admin typed in
+ * (e.g. "Dallas Cowboys" or just "Cowboys" both match "cowboys"). */
+const TEAM_LOGOS = {
+  cowboys: 'dal', eagles: 'phi', giants: 'nyg', commanders: 'wsh',
+  bears: 'chi', lions: 'det', packers: 'gb', vikings: 'min',
+  falcons: 'atl', panthers: 'car', saints: 'no', buccaneers: 'tb',
+  cardinals: 'ari', rams: 'lar', '49ers': 'sf', seahawks: 'sea',
+  bills: 'buf', dolphins: 'mia', patriots: 'ne', jets: 'nyj',
+  ravens: 'bal', bengals: 'cin', browns: 'cle', steelers: 'pit',
+  texans: 'hou', colts: 'ind', jaguars: 'jax', titans: 'ten',
+  broncos: 'den', chiefs: 'kc', raiders: 'lv', chargers: 'lac'
+};
+
+function getTeamLogoUrl(teamName) {
+  if (!teamName) return null;
+  const words = teamName.trim().split(/\s+/);
+  const key = words[words.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+  const code = TEAM_LOGOS[key];
+  return code ? `https://a.espncdn.com/i/teamlogos/nfl/500/scoreboard/${code}.png` : null;
+}
+
+function teamLogoImgTag(teamName, size) {
+  const url = getTeamLogoUrl(teamName);
+  if (!url) return '';
+  const px = size || 40;
+  return `<img class="team-logo" src="${url}" alt="" width="${px}" height="${px}" onerror="this.remove()">`;
 }

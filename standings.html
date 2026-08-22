@@ -10,8 +10,9 @@
 
 <header class="scoreboard">
   <div class="scoreboard-inner">
-    <p class="league-name" id="leagueName">THE PICK LEAGUE</p>
+    <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display"><span class="digits">STANDINGS</span></h1>
+    <p class="league-tagline" id="leagueName">THE PICK LEAGUE</p>
     <nav class="nav-row">
       <a class="nav-link" href="index.html">Make Picks</a>
       <a class="nav-link current" href="standings.html">Standings</a>
@@ -20,8 +21,24 @@
 </header>
 
 <main class="wrap">
-  <h2 class="section-title">Season leaderboard</h2>
+  <h2 class="section-title">🏆 Season leaderboard</h2>
   <ul class="standings-list" id="standingsList"></ul>
+
+  <div class="card prize-card">
+    <div class="muted">AT THE END OF THE SEASON, THE PLAYER WITH THE MOST POINTS BECOMES</div>
+    <div class="prize-title">🧁 The Cupcake Supreme</div>
+    <div class="muted">There can be only one.</div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title" style="margin-bottom:10px;">📋 The fine print</h2>
+    <ul class="rules-list">
+      <li>1 point for each of your 3 picks that wins.</li>
+      <li>+1 bonus point for a perfect 3-for-3 week.</li>
+      <li>No entry fee, no eliminations — just picks &amp; fun.</li>
+      <li>One great week can change everything. One terrible week will be remembered forever.</li>
+    </ul>
+  </div>
 
   <div id="weekBreakdown"></div>
 </main>
@@ -53,7 +70,7 @@ function renderStandings(standings) {
     <li class="standings-row">
       <div class="jersey-num">${i + 1}</div>
       <div class="standings-name">${escapeHtml(s.playerName)}</div>
-      <div class="standings-record">${s.wins}<span class="lost">-${s.losses}</span></div>
+      <div class="standings-points">${s.points}<span class="pts-label">PTS</span></div>
     </li>
   `).join('');
 }
@@ -65,7 +82,7 @@ function renderWeekBreakdown(weeks) {
   const html = decidedWeeks.map(w => {
     const rows = (w.games || []).filter(g => g.winner).map(g => {
       const winnerName = g.winner === 'away' ? g.away : g.home;
-      return `<div class="muted">${escapeHtml(g.away)} @ ${escapeHtml(g.home)} — <strong>${escapeHtml(winnerName)}</strong> won</div>`;
+      return `<div class="muted" style="display:flex; align-items:center; gap:6px;">${teamLogoImgTag(g.away, 20)}${escapeHtml(g.away)} @ ${teamLogoImgTag(g.home, 20)}${escapeHtml(g.home)} — <strong>${escapeHtml(winnerName)}</strong> won</div>`;
     }).join('');
     return `<div class="card"><h2 class="section-title">${escapeHtml(w.label || ('Week ' + w.weekNumber))} results</h2>${rows}</div>`;
   }).join('');
