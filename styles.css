@@ -30,14 +30,12 @@
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #F3EFE6;
-  background-image:
-    linear-gradient(rgba(243,239,230,0.93), rgba(243,239,230,0.93)),
-    url('backdrop.jpg'),
-    radial-gradient(rgba(16, 31, 69, 0.06) 1.5px, transparent 1.5px);
-  background-size: auto, 900px auto, 26px 26px;
-  background-position: 0 0, top center, 0 0;
-  background-repeat: repeat, no-repeat, repeat;
+  background-color: #0B1730;
+  background-image: url('backdrop.jpg');
+  background-size: cover;
+  background-position: top center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -62,11 +60,7 @@ a { color: inherit; }
 /* ---------- Scoreboard header ---------- */
 
 .scoreboard {
-  background:
-    linear-gradient(180deg, rgba(7,14,36,0.55) 0%, rgba(7,14,36,0.88) 75%, var(--navy-dark) 100%),
-    url('backdrop.jpg');
-  background-size: cover;
-  background-position: center 12%;
+  background: linear-gradient(180deg, rgba(7,14,36,0.28) 0%, rgba(7,14,36,0.6) 100%);
   color: var(--cream);
   padding: 26px 20px 28px;
   margin-bottom: 28px;
@@ -493,7 +487,11 @@ button.amber:hover { background: var(--gold-dark); }
   color: var(--ink-soft);
   font-size: 12px;
   font-family: var(--font-fun);
-  padding: 30px 20px 10px;
+  padding: 8px 16px;
+  margin: 30px auto 10px;
+  background: rgba(255, 248, 236, 0.9);
+  border-radius: 999px;
+  display: table;
 }
 
 @media (max-width: 480px) {
