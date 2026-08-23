@@ -30,7 +30,14 @@
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #F3EFE6;
+  background-color: #DCEEDA;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255,255,255,0.16) 0px,
+    rgba(255,255,255,0.16) 60px,
+    transparent 60px,
+    transparent 120px
+  );
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -65,8 +72,10 @@ a { color: inherit; }
 
 .banner-logo {
   display: block;
-  width: 100%;
+  max-width: 380px;
+  width: 70%;
   height: auto;
+  margin: 18px auto 0;
 }
 
 .scoreboard-inner {
