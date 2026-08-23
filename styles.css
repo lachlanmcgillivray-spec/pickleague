@@ -30,23 +30,10 @@
 html, body {
   margin: 0;
   padding: 0;
-  background-color: #0B1730;
-  background-image: url('backdrop.jpg');
-  background-size: contain;
-  background-position: top center;
-  background-repeat: no-repeat;
-  background-attachment: fixed;
+  background-color: #F3EFE6;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
-}
-
-/* Fixed backgrounds are unreliable on phones (especially iOS Safari),
-   so let it scroll normally with the page on small screens instead. */
-@media (max-width: 780px) {
-  html, body {
-    background-attachment: scroll;
-  }
 }
 
 body {
@@ -68,7 +55,11 @@ a { color: inherit; }
 /* ---------- Scoreboard header ---------- */
 
 .scoreboard {
-  background: linear-gradient(180deg, rgba(7,14,36,0.28) 0%, rgba(7,14,36,0.6) 100%);
+  background:
+    linear-gradient(180deg, rgba(7,14,36,0.35) 0%, rgba(7,14,36,0.78) 100%),
+    url('backdrop.jpg');
+  background-size: cover;
+  background-position: center 15%;
   color: var(--cream);
   padding: 26px 20px 28px;
   margin-bottom: 28px;
@@ -437,6 +428,28 @@ button.amber:hover { background: var(--gold-dark); }
   display: inline-block;
   background: linear-gradient(135deg, #EAE6F5, #F6F1FB);
   border: 2px dashed var(--line);
+}
+
+/* ---------- Side-flank artwork (wide screens only) ---------- */
+
+.backdrop-flank {
+  display: none;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 340px;
+  object-fit: cover;
+  object-position: top center;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.92;
+}
+
+.backdrop-flank-left { left: 0; }
+.backdrop-flank-right { right: 0; transform: scaleX(-1); }
+
+@media (min-width: 1180px) {
+  .backdrop-flank { display: block; }
 }
 
 .pick-chip {
