@@ -348,20 +348,86 @@ async function loadRoster() {
     card.innerHTML = `<p class="muted">No one has joined yet.</p>`;
     return;
   }
-  card.innerHTML = `<p class="muted" style="margin-top:0;">If a kid forgets their PIN, reset it here — they'll be asked to set a new one next time they pick.</p>` +
+  card.innerHTML = `<p class="muted" style="margin-top:0;">Upload a fun badge image for each kid — it'll show next to their team name everywhere on the site. If a kid forgets their PIN, reset it here too.</p>` +
     players.map(p => `
-      <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--line);">
-        <span>${escapeHtml(p.name)}</span>
-        <button class="secondary" data-reset="${p.id}" type="button">Reset PIN</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          ${playerBadgeImgTag(p, 44)}
+          <span style="overflow-wrap:anywhere;">${escapeHtml(p.name)}</span>
+        </div>
+        <div style="display:flex; gap:8px; flex-shrink:0;">
+          <input type="file" accept="image/*" data-badge-file="${p.id}" style="display:none;">
+          <button class="secondary" data-badge-btn="${p.id}" type="button">Badge</button>
+          <button class="secondary" data-reset="${p.id}" type="button">Reset PIN</button>
+          <button class="danger" data-remove="${p.id}" data-name="${escapeHtml(p.name)}" type="button">Remove</button>
+        </div>
       </div>
     `).join('');
 
   card.querySelectorAll('button[data-reset]').forEach(btn => {
     btn.addEventListener('click', async () => {
-      if (!confirm(`Reset the PIN for ${btn.previousElementSibling.textContent}? They'll need to set a new one.`)) return;
+      if (!confirm('Reset this player\'s PIN? They\'ll need to set a new one.')) return;
       await db.collection('players').doc(btn.dataset.reset).update({ pinHash: firebase.firestore.FieldValue.delete() });
       alert('PIN reset. They can set a new one next time they pick.');
     });
+  });
+
+  card.querySelectorAll('button[data-remove]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (!confirm(`Remove "${btn.dataset.name}" from the league? This deletes their name and every pick they've made — it can't be undone.`)) return;
+      try {
+        await deletePlayer(btn.dataset.remove);
+        await loadRoster();
+      } catch (e) {
+        alert('Could not remove that player: ' + e.message);
+      }
+    });
+  });
+
+  card.querySelectorAll('button[data-badge-btn]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      card.querySelector(`input[data-badge-file="${btn.dataset.badgeBtn}"]`).click();
+    });
+  });
+
+  card.querySelectorAll('input[data-badge-file]').forEach(input => {
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        const dataUrl = await resizeImageToSquareDataUrl(file, 200);
+        await db.collection('players').doc(input.dataset.badgeFile).update({ badgeUrl: dataUrl });
+        await loadRoster();
+      } catch (e) {
+        alert('Could not upload that image: ' + e.message);
+      }
+    });
+  });
+}
+
+/** Reads an image file, crops it to a square, and returns a small compressed JPEG data URL
+ * (stored directly in the player's Firestore doc — no separate file storage needed). */
+function resizeImageToSquareDataUrl(file, size) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read file.'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That file doesn't look like an image."));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.max(size / img.width, size / img.height);
+        const w = img.width * scale;
+        const h = img.height * scale;
+        ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   });
 }
 

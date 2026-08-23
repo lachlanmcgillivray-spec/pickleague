@@ -48,6 +48,7 @@ Because GitHub Pages only serves files (it can't run a database), this uses **Fi
            && request.resource.data.pinHash ==
                 get(/databases/$(database)/documents/players/$(request.resource.data.playerId)).data.pinHash
            && !get(/databases/$(database)/documents/weeks/$(request.resource.data.weekId)).data.locked;
+         allow delete: if request.auth.token.email in ['lachlan.mcgillivray@gmail.com'];
        }
      }
    }

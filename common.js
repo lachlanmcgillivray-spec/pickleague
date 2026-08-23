@@ -84,6 +84,16 @@ async function setPlayerPin(player, pin) {
   return pinHash;
 }
 
+/** Admin-only: removes a player and every pick they've ever submitted, so they
+ * also disappear from standings rather than lingering as an orphaned record. */
+async function deletePlayer(playerId) {
+  const picksSnap = await db.collection('picks').where('playerId', '==', playerId).get();
+  const batch = db.batch();
+  picksSnap.docs.forEach(doc => batch.delete(doc.ref));
+  batch.delete(db.collection('players').doc(playerId));
+  await batch.commit();
+}
+
 const UnlockedPlayers = {
   key(id) { return `pickleague_unlocked_${id}`; },
   isUnlocked(id) { return localStorage.getItem(this.key(id)) === '1'; },
@@ -243,4 +253,13 @@ function teamLogoImgTag(teamName, size) {
   if (!url) return '';
   const px = size || 40;
   return `<img class="team-logo" src="${url}" alt="" width="${px}" height="${px}" onerror="this.remove()">`;
+}
+
+/** Renders a player's admin-uploaded badge image, or a plain placeholder circle if none set. */
+function playerBadgeImgTag(player, size) {
+  const px = size || 40;
+  if (player && player.badgeUrl) {
+    return `<img class="player-badge" src="${player.badgeUrl}" width="${px}" height="${px}" style="width:${px}px;height:${px}px;">`;
+  }
+  return `<span class="player-badge placeholder" style="width:${px}px;height:${px}px;"></span>`;
 }
