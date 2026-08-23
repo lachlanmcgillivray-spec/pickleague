@@ -1,5 +1,5 @@
 /* ============================================================
-   Pick League â€” "Any Given Sundae" design system
+   Pick League — "Any Given Sundae" design system
    Concept: night-game stadium lights + drippy frosting + trophy gold
    ============================================================ */
 
@@ -33,7 +33,7 @@ html, body {
   background-color: #F3EFE6;
   background-image:
     linear-gradient(rgba(243,239,230,0.93), rgba(243,239,230,0.93)),
-    url('images/backdrop.jpg'),
+    url('backdrop.jpg'),
     radial-gradient(rgba(16, 31, 69, 0.06) 1.5px, transparent 1.5px);
   background-size: auto, 900px auto, 26px 26px;
   background-position: 0 0, top center, 0 0;
@@ -64,7 +64,7 @@ a { color: inherit; }
 .scoreboard {
   background:
     linear-gradient(180deg, rgba(7,14,36,0.55) 0%, rgba(7,14,36,0.88) 75%, var(--navy-dark) 100%),
-    url('images/backdrop.jpg');
+    url('backdrop.jpg');
   background-size: cover;
   background-position: center 12%;
   color: var(--cream);
