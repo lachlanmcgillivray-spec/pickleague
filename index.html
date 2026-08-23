@@ -30,11 +30,21 @@
     }
     updateMascotFlanks();
     window.addEventListener('resize', updateMascotFlanks);
+
+    function updateWideLayout() {
+      var wide = window.innerWidth >= 1100;
+      document.querySelectorAll('.wrap, .scoreboard-inner').forEach(function (el) {
+        el.style.maxWidth = wide ? '1040px' : '';
+      });
+      document.body.style.fontSize = wide ? '17px' : '';
+    }
+    updateWideLayout();
+    window.addEventListener('resize', updateWideLayout);
   })();
 </script>
 
 <header class="scoreboard">
-  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;max-width:560px;width:88%;height:auto;margin:18px auto 0;">
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;width:100%;height:auto;">
   <div class="scoreboard-inner">
     <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display" id="weekDisplay">Loading&hellip;</h1>
