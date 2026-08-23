@@ -10,3 +10,4 @@ const FIREBASE_CONFIG = {
 const LEAGUE_NAME = "Any Given Sundae League";
 
 const ADMIN_EMAILS = ["lachlan.mcgillivray@gmail.com"];
+const PICK_DEADLINE_NOTE = "Picks are due by 5:00 PM Thursday — the week locks at 6:00 PM.";

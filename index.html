@@ -23,6 +23,8 @@
 
 <main class="wrap">
 
+  <div id="deadlineBanner"></div>
+
   <div class="card">
     <h2 class="section-title">Who are you?</h2>
     <div class="player-select-row">
@@ -96,6 +98,10 @@ let selectedTeams = []; // up to 3 team names
 
 async function init() {
   document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
+  if (typeof PICK_DEADLINE_NOTE !== 'undefined' && PICK_DEADLINE_NOTE) {
+    document.getElementById('deadlineBanner').innerHTML =
+      `<div class="banner warn">⏰ ${escapeHtml(PICK_DEADLINE_NOTE)}</div>`;
+  }
   await ensureSignedIn();
 
   await refreshPlayers();
