@@ -8,20 +8,33 @@
 </head>
 <body>
 
-<div class="mascot-flank mascot-flank-left" aria-hidden="true">
-  <img src="bears.png" alt="">
-  <img src="cowboys.png" alt="">
-  <img src="eagles.png" alt="">
-  <img src="seahawks.png" alt="">
+<div id="mascotFlankLeft" style="position:fixed; top:110px; left:20px; width:170px; display:none; flex-direction:column; align-items:flex-start; gap:36px; z-index:-1; pointer-events:none;" aria-hidden="true">
+  <img src="bears.png" alt="" style="width:100%; height:auto; filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
+  <img src="cowboys.png" alt="" style="width:100%; height:auto; filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
+  <img src="eagles.png" alt="" style="width:100%; height:auto; filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
+  <img src="seahawks.png" alt="" style="width:100%; height:auto; filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
 </div>
-<div class="mascot-flank mascot-flank-right" aria-hidden="true">
-  <img src="cardinals.png" alt="">
-  <img src="dolphins.png" alt="">
-  <img src="rams.png" alt="">
+<div id="mascotFlankRight" style="position:fixed; top:110px; right:20px; width:170px; display:none; flex-direction:column; align-items:flex-end; gap:36px; z-index:-1; pointer-events:none;" aria-hidden="true">
+  <img src="cardinals.png" alt="" style="width:100%; height:auto; transform:scaleX(-1); filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
+  <img src="dolphins.png" alt="" style="width:100%; height:auto; transform:scaleX(-1); filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
+  <img src="rams.png" alt="" style="width:100%; height:auto; transform:scaleX(-1); filter:drop-shadow(0 8px 12px rgba(7,14,36,0.28));">
 </div>
+<script>
+  (function () {
+    function updateMascotFlanks() {
+      var show = window.innerWidth >= 1300;
+      var left = document.getElementById('mascotFlankLeft');
+      var right = document.getElementById('mascotFlankRight');
+      if (left) left.style.display = show ? 'flex' : 'none';
+      if (right) right.style.display = show ? 'flex' : 'none';
+    }
+    updateMascotFlanks();
+    window.addEventListener('resize', updateMascotFlanks);
+  })();
+</script>
 
 <header class="scoreboard">
-  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;max-width:380px;width:70%;height:auto;margin:18px auto 0;">
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;max-width:560px;width:88%;height:auto;margin:18px auto 0;">
   <div class="scoreboard-inner">
     <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display" id="weekDisplay">Loading&hellip;</h1>
