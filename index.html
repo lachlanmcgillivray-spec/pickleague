@@ -352,14 +352,15 @@ function renderGames() {
   }
 
   if (currentWeek.locked) {
-    showBanner('warn', 'Picks are locked for this week — here\'s how everyone did.');
     const existingPickForScore = { pickedTeams: selectedTeams };
     const score = scorePick(existingPickForScore, currentWeek);
     if (selectedTeams.length === 3) {
       showBanner(score.anyPending ? 'info' : 'success',
         score.anyPending
-          ? `Your picks: ${selectedTeams.join(', ')} — waiting on results.`
-          : `You scored ${score.points} point${score.points === 1 ? '' : 's'} this week${score.bonus ? ' (nice, perfect week bonus!)' : ''}.`);
+          ? `Picks are locked. Your picks: ${selectedTeams.join(', ')} — waiting on results.`
+          : `Picks are locked. You scored ${score.points} point${score.points === 1 ? '' : 's'} this week${score.bonus ? ' (nice, perfect week bonus!)' : ''}.`);
+    } else {
+      showBanner('warn', 'Picks are locked for this week — here\'s how everyone did.');
     }
   }
 

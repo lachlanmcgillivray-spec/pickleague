@@ -89,6 +89,15 @@ Patriots @ Seahawks
 
     <h2 class="section-title">Roster</h2>
     <div class="card" id="rosterCard"></div>
+
+    <h2 class="section-title">📋 Team picks</h2>
+    <div class="card">
+      <p class="muted" style="margin-top:0;">Admins can see everyone's picks anytime, locked or not.</p>
+      <div class="player-select-row">
+        <select id="adminPicksWeekSelect"></select>
+      </div>
+      <div id="adminPicksArea"></div>
+    </div>
   </div>
 
 </main>
@@ -119,6 +128,7 @@ async function init() {
       document.getElementById('adminEmailDisplay').textContent = user.email;
       loadWeeks();
       loadRoster();
+      loadAdminPicksViewer();
     }
   });
 
@@ -430,6 +440,59 @@ function resizeImageToSquareDataUrl(file, size) {
     };
     reader.readAsDataURL(file);
   });
+}
+
+async function loadAdminPicksViewer() {
+  const [weeks, players] = await Promise.all([getWeeks(), getPlayers()]);
+  const playersById = {};
+  players.forEach(p => { playersById[p.id] = p; });
+
+  const sel = document.getElementById('adminPicksWeekSelect');
+  const area = document.getElementById('adminPicksArea');
+
+  if (weeks.length === 0) {
+    sel.innerHTML = '';
+    area.innerHTML = `<p class="muted">No weeks yet.</p>`;
+    return;
+  }
+
+  sel.innerHTML = weeks.map(w =>
+    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? ' (locked)' : ' (open)'}</option>`
+  ).join('');
+  sel.value = weeks[weeks.length - 1].id;
+
+  const render = async () => {
+    const week = weeks.find(w => w.id === sel.value);
+    const picks = await getAllPicksForWeek(sel.value);
+    if (!week || picks.length === 0) {
+      area.innerHTML = `<div class="empty-state"><span class="emoji">🤷</span>No picks submitted for this week yet.</div>`;
+      return;
+    }
+    area.innerHTML = picks
+      .sort((a, b) => a.playerName.localeCompare(b.playerName))
+      .map(p => {
+        const score = scorePick(p, week);
+        const teamsHtml = (p.pickedTeams || []).map(team => {
+          const game = (week.games || []).find(g => g.away === team || g.home === team);
+          const decided = game && game.winner;
+          const won = decided && ((game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
+          const cls = !decided ? 'pick-pending' : (won ? 'pick-correct' : 'pick-wrong');
+          return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
+        }).join('');
+        return `
+          <div class="standings-row" style="align-items:flex-start;">
+            ${playerBadgeImgTag(playersById[p.playerId], 36)}
+            <div style="flex:1;">
+              <div class="standings-name">${escapeHtml(p.playerName)}</div>
+              <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${teamsHtml}</div>
+            </div>
+            <div class="standings-points">${score.points}<span class="pts-label">PTS</span></div>
+          </div>`;
+      }).join('');
+  };
+
+  sel.addEventListener('change', render);
+  render();
 }
 
 init();
