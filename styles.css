@@ -32,13 +32,21 @@ html, body {
   padding: 0;
   background-color: #0B1730;
   background-image: url('backdrop.jpg');
-  background-size: cover;
+  background-size: contain;
   background-position: top center;
   background-repeat: no-repeat;
   background-attachment: fixed;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Fixed backgrounds are unreliable on phones (especially iOS Safari),
+   so let it scroll normally with the page on small screens instead. */
+@media (max-width: 780px) {
+  html, body {
+    background-attachment: scroll;
+  }
 }
 
 body {

@@ -96,7 +96,8 @@ function renderPicksSelector(weeks, totalPlayers) {
   ).join('');
 
   const lastLocked = [...weeks].reverse().find(w => w.locked);
-  sel.value = (lastLocked || weeks[weeks.length - 1]).id;
+  const firstUnlocked = weeks.find(w => !w.locked);
+  sel.value = (lastLocked || firstUnlocked || weeks[weeks.length - 1]).id;
 
   sel.addEventListener('change', () => loadWeekPicks(sel.value, totalPlayers));
   loadWeekPicks(sel.value, totalPlayers);

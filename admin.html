@@ -244,16 +244,30 @@ async function loadWeeks() {
     return;
   }
   container.innerHTML = weeks.map(w => `
-    <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+    <div class="card" style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
       <div>
         <strong>${escapeHtml(w.label || ('Week ' + w.weekNumber))}</strong>
         <span class="muted"> — ${(w.games || []).length} matchup(s)${w.locked ? ' · locked' : ''}</span>
       </div>
-      <button class="secondary" data-week="${w.id}">Edit</button>
+      <div style="display:flex; gap:8px;">
+        <button class="${w.locked ? 'amber' : 'secondary'}" data-toggle-lock="${w.id}" data-locked="${w.locked ? '1' : '0'}" type="button">${w.locked ? '🔒 Unlock' : '🔓 Lock'}</button>
+        <button class="secondary" data-week="${w.id}">Edit</button>
+      </div>
     </div>
   `).join('');
   container.querySelectorAll('button[data-week]').forEach(btn => {
     btn.addEventListener('click', () => loadWeekIntoEditor(btn.dataset.week, weeks));
+  });
+  container.querySelectorAll('button[data-toggle-lock]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const willLock = btn.dataset.locked !== '1';
+      const msg = willLock
+        ? 'Lock this week? Kids will no longer be able to change their picks.'
+        : 'Unlock this week? Kids will be able to change their picks again.';
+      if (!confirm(msg)) return;
+      await saveWeek(btn.dataset.toggleLock, { locked: willLock });
+      await loadWeeks();
+    });
   });
 }
 
