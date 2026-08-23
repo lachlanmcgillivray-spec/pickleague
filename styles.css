@@ -448,7 +448,7 @@ button.amber:hover { background: var(--gold-dark); }
 .backdrop-flank-left { left: 0; }
 .backdrop-flank-right { right: 0; transform: scaleX(-1); }
 
-@media (min-width: 1180px) {
+@media (min-width: 980px) {
   .backdrop-flank { display: block; }
 }
 
