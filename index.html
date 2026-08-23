@@ -424,7 +424,7 @@ function renderGames() {
     return `
       <button class="${classes.join(' ')}" data-team="${escapeHtml(t.team)}" ${(currentWeek.locked || disableTile) && !selected ? 'disabled' : ''}>
         ${decided && won ? '<span class="tile-crown">🏆</span>' : ''}
-        ${teamLogoImgTag(t.team, 44)}
+        ${teamLogoImgTag(t.team, 60)}
         <span class="tile-team-name">${escapeHtml(t.team)}</span>
         <span class="tile-opponent">vs ${escapeHtml(t.opponent)}</span>
       </button>`;

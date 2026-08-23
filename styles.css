@@ -245,12 +245,12 @@ button.amber:hover { background: var(--gold-dark); }
 .pick-counter {
   font-family: var(--font-fun);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 17px;
   color: var(--navy);
   background: #FFE6F1;
   border: 2px solid var(--pink);
   border-radius: 999px;
-  padding: 8px 16px;
+  padding: 12px 22px;
   display: inline-block;
   margin-bottom: 16px;
 }
@@ -259,8 +259,8 @@ button.amber:hover { background: var(--gold-dark); }
 
 .team-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
   margin-bottom: 10px;
 }
 
@@ -268,12 +268,12 @@ button.amber:hover { background: var(--gold-dark); }
   position: relative;
   background: white;
   border: 2px solid var(--line);
-  border-radius: 14px;
-  padding: 14px 10px 12px;
+  border-radius: 16px;
+  padding: 18px 12px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
   box-shadow: var(--shadow);
   font-family: var(--font-body);
@@ -283,13 +283,13 @@ button.amber:hover { background: var(--gold-dark); }
 
 .team-tile .tile-team-name {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 16px;
   color: var(--ink);
   text-align: center;
 }
 
 .team-tile .tile-opponent {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--ink-soft);
   font-family: var(--font-fun);
   letter-spacing: 0.3px;
@@ -449,6 +449,33 @@ button.amber:hover { background: var(--gold-dark); }
 .pick-chip.pick-wrong { border-color: var(--pink); background: #FFF0F7; color: var(--pink-dark); opacity: 0.85; }
 .pick-chip.pick-pending { border-color: var(--gold); background: #FFF8E6; color: #8A6400; }
 
+/* ---------- Mascot artwork flanks (wide screens only) ---------- */
+
+.mascot-flank {
+  display: none;
+  position: fixed;
+  top: 110px;
+  width: 170px;
+  flex-direction: column;
+  gap: 36px;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.mascot-flank img {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 8px 12px rgba(7,14,36,0.28));
+}
+
+.mascot-flank-left { left: 20px; align-items: flex-start; }
+.mascot-flank-right { right: 20px; align-items: flex-end; }
+.mascot-flank-right img { transform: scaleX(-1); }
+
+@media (min-width: 1300px) {
+  .mascot-flank { display: flex; }
+}
+
 /* ---------- Admin: ticket-stub matchup editor (unchanged mechanic) ---------- */
 
 .stub {
@@ -497,4 +524,19 @@ button.amber:hover { background: var(--gold-dark); }
 
 @media (max-width: 480px) {
   .admin-game-row { grid-template-columns: 1fr; }
+}
+
+/* Use more of the screen on large desktop monitors instead of staying
+   pinned to a narrow mobile-width column with huge empty margins. */
+@media (min-width: 1100px) {
+  .wrap, .scoreboard-inner {
+    max-width: 980px;
+  }
+  body {
+    font-size: 17px;
+  }
+  .team-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+  }
 }
