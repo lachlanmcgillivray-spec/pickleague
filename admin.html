@@ -310,8 +310,8 @@ function renderGameRows() {
       <input type="text" placeholder="Home team" value="${escapeHtml(g.home)}" data-idx="${i}" data-field="home">
       <select data-idx="${i}" data-field="winner">
         <option value="">No winner yet</option>
-        <option value="away" ${g.winner === 'away' ? 'selected' : ''}>Away won</option>
-        <option value="home" ${g.winner === 'home' ? 'selected' : ''}>Home won</option>
+        <option value="away" ${g.winner === 'away' ? 'selected' : ''}>${g.away ? escapeHtml(g.away) + ' won' : 'Away team won'}</option>
+        <option value="home" ${g.winner === 'home' ? 'selected' : ''}>${g.home ? escapeHtml(g.home) + ' won' : 'Home team won'}</option>
       </select>
       <button class="danger" type="button" data-remove="${i}">✕</button>
     </div>
@@ -321,6 +321,9 @@ function renderGameRows() {
     el.addEventListener('input', () => {
       gameRows[el.dataset.idx][el.dataset.field] = el.value;
     });
+    if (el.dataset.field === 'away' || el.dataset.field === 'home') {
+      el.addEventListener('blur', () => renderGameRows());
+    }
   });
   container.querySelectorAll('button[data-remove]').forEach(btn => {
     btn.addEventListener('click', () => {
