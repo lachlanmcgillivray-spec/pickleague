@@ -8,15 +8,11 @@
 </head>
 <body>
 
-<img class="backdrop-flank backdrop-flank-left" src="backdrop.jpg" alt="" aria-hidden="true">
-<img class="backdrop-flank backdrop-flank-right" src="backdrop.jpg" alt="" aria-hidden="true">
-
 <header class="scoreboard">
-  <div class="confetti" aria-hidden="true"></div>
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League">
   <div class="scoreboard-inner">
     <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display" id="weekDisplay">Loading&hellip;</h1>
-    <p class="league-tagline" id="leagueName">THE PICK LEAGUE</p>
     <nav class="nav-row">
       <a class="nav-link current" href="index.html">Make Picks</a>
       <a class="nav-link" href="standings.html">Standings</a>
@@ -100,7 +96,7 @@ let currentWeek = null;
 let selectedTeams = []; // up to 3 team names
 
 async function init() {
-  document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
+  document.querySelector('.banner-logo').alt = LEAGUE_NAME;
   if (typeof PICK_DEADLINE_NOTE !== 'undefined' && PICK_DEADLINE_NOTE) {
     document.getElementById('deadlineBanner').innerHTML =
       `<div class="banner warn">⏰ ${escapeHtml(PICK_DEADLINE_NOTE)}</div>`;

@@ -55,16 +55,18 @@ a { color: inherit; }
 /* ---------- Scoreboard header ---------- */
 
 .scoreboard {
-  background:
-    linear-gradient(180deg, rgba(7,14,36,0.35) 0%, rgba(7,14,36,0.78) 100%),
-    url('backdrop.jpg');
-  background-size: cover;
-  background-position: center 15%;
+  background: linear-gradient(180deg, var(--navy) 0%, var(--navy-dark) 100%);
   color: var(--cream);
-  padding: 26px 20px 28px;
+  padding: 0 0 22px;
   margin-bottom: 28px;
   position: relative;
   overflow: hidden;
+}
+
+.banner-logo {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .scoreboard-inner {
@@ -72,6 +74,7 @@ a { color: inherit; }
   margin: 0 auto;
   position: relative;
   z-index: 1;
+  padding: 18px 20px 0;
 }
 
 .confetti {
@@ -95,16 +98,6 @@ a { color: inherit; }
   text-transform: uppercase;
   color: var(--gold);
   margin: 0 0 4px;
-}
-
-.league-tagline {
-  font-family: var(--font-fun);
-  font-weight: 600;
-  font-size: 13px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.7);
-  margin: 6px 0 0;
 }
 
 .week-display {
@@ -428,28 +421,6 @@ button.amber:hover { background: var(--gold-dark); }
   display: inline-block;
   background: linear-gradient(135deg, #EAE6F5, #F6F1FB);
   border: 2px dashed var(--line);
-}
-
-/* ---------- Side-flank artwork (wide screens only) ---------- */
-
-.backdrop-flank {
-  display: none;
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  width: 340px;
-  object-fit: cover;
-  object-position: top center;
-  pointer-events: none;
-  z-index: -1;
-  opacity: 0.92;
-}
-
-.backdrop-flank-left { left: 0; }
-.backdrop-flank-right { right: 0; transform: scaleX(-1); }
-
-@media (min-width: 980px) {
-  .backdrop-flank { display: block; }
 }
 
 .pick-chip {

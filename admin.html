@@ -8,15 +8,11 @@
 </head>
 <body>
 
-<img class="backdrop-flank backdrop-flank-left" src="backdrop.jpg" alt="" aria-hidden="true">
-<img class="backdrop-flank backdrop-flank-right" src="backdrop.jpg" alt="" aria-hidden="true">
-
 <header class="scoreboard">
-  <div class="confetti" aria-hidden="true"></div>
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League">
   <div class="scoreboard-inner">
     <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display"><span class="digits">ADMIN</span></h1>
-    <p class="league-tagline" id="leagueName">THE PICK LEAGUE</p>
     <nav class="nav-row">
       <a class="nav-link" href="index.html">Make Picks</a>
       <a class="nav-link" href="standings.html">Standings</a>
@@ -121,7 +117,7 @@ function newGameId() {
 }
 
 async function init() {
-  document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
+  document.querySelector('.banner-logo').alt = LEAGUE_NAME;
 
   auth.onAuthStateChanged(user => {
     const isAdmin = user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email);
