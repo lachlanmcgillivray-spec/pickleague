@@ -30,7 +30,9 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: #F3EFE6;
+  background-color: #F3EFE6;
+  background-image: radial-gradient(rgba(16, 31, 69, 0.06) 1.5px, transparent 1.5px);
+  background-size: 26px 26px;
   color: var(--ink);
   font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
@@ -71,6 +73,19 @@ a { color: inherit; }
   margin: 0 auto;
   position: relative;
   z-index: 1;
+}
+
+.confetti {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, var(--gold) 3px, transparent 3.5px),
+    radial-gradient(circle, var(--pink) 3px, transparent 3.5px),
+    radial-gradient(circle, rgba(255,255,255,0.6) 2px, transparent 2.5px);
+  background-size: 100px 90px, 140px 130px, 70px 60px;
+  background-position: 10px 15px, 60px 70px, 30px 40px;
+  opacity: 0.45;
 }
 
 .league-name {
@@ -402,6 +417,36 @@ button.amber:hover { background: var(--gold-dark); }
   object-fit: contain;
   margin-bottom: 2px;
 }
+
+.player-badge {
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--line);
+  flex-shrink: 0;
+}
+
+.player-badge.placeholder {
+  display: inline-block;
+  background: linear-gradient(135deg, #EAE6F5, #F6F1FB);
+  border: 2px dashed var(--line);
+}
+
+.pick-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-fun);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px 4px 6px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: white;
+}
+
+.pick-chip.pick-correct { border-color: #3FAE5C; background: #EAFBEF; color: #1E7A44; }
+.pick-chip.pick-wrong { border-color: var(--pink); background: #FFF0F7; color: var(--pink-dark); opacity: 0.85; }
+.pick-chip.pick-pending { border-color: var(--gold); background: #FFF8E6; color: #8A6400; }
 
 /* ---------- Admin: ticket-stub matchup editor (unchanged mechanic) ---------- */
 

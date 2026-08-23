@@ -29,6 +29,7 @@
       <select id="playerSelect">
         <option value="">Choose your team name&hellip;</option>
       </select>
+      <span id="playerBadgePreview"></span>
       <button class="secondary" id="lockBtn" style="display:none;" type="button">Not you? Lock</button>
     </div>
 
@@ -137,8 +138,9 @@ async function refreshWeeks() {
     `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? ' (locked)' : ''}</option>`
   ).join('');
 
-  // Default to the last *unlocked* week, else the most recent week.
-  const unlocked = [...weeks].reverse().find(w => !w.locked);
+  // Default to the earliest *unlocked* week (i.e. the current week to pick),
+  // else fall back to the most recent week overall.
+  const unlocked = weeks.find(w => !w.locked);
   const defaultWeek = unlocked || weeks[weeks.length - 1];
   sel.value = defaultWeek.id;
 
@@ -186,6 +188,7 @@ async function onPlayerChange() {
   currentPlayer = players.find(p => p.id === currentPlayerId) || null;
 
   document.getElementById('lockBtn').style.display = 'none';
+  document.getElementById('playerBadgePreview').innerHTML = currentPlayer ? playerBadgeImgTag(currentPlayer, 40) : '';
 
   if (currentPlayerId) LocalPlayer.set(currentPlayerId);
 

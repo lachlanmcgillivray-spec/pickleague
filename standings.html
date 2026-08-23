@@ -9,6 +9,7 @@
 <body>
 
 <header class="scoreboard">
+  <div class="confetti" aria-hidden="true"></div>
   <div class="scoreboard-inner">
     <p class="league-name" id="leagueTag">KIDS PICK 'EM LEAGUE</p>
     <h1 class="week-display"><span class="digits">STANDINGS</span></h1>
@@ -40,6 +41,15 @@
     </ul>
   </div>
 
+  <div class="card">
+    <h2 class="section-title">🔍 Who picked what</h2>
+    <p class="muted" style="margin-top:0;">Picks are revealed here once the admin locks the week — so nobody can peek and copy before the deadline.</p>
+    <div class="player-select-row">
+      <select id="picksWeekSelect"></select>
+    </div>
+    <div id="picksArea"></div>
+  </div>
+
   <div id="weekBreakdown"></div>
 </main>
 
@@ -51,16 +61,82 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
+let allWeeksGlobal = [];
+let playersByIdGlobal = {};
+
 async function init() {
   document.getElementById('leagueName').textContent = LEAGUE_NAME.toUpperCase();
   await ensureSignedIn();
 
-  const [weeks, allPicks] = await Promise.all([getWeeks(), getAllPicks()]);
-  renderStandings(computeStandings(weeks, allPicks));
+  const [weeks, allPicks, players] = await Promise.all([getWeeks(), getAllPicks(), getPlayers()]);
+  allWeeksGlobal = weeks;
+  playersByIdGlobal = {};
+  players.forEach(p => { playersByIdGlobal[p.id] = p; });
+
+  renderStandings(computeStandings(weeks, allPicks), playersByIdGlobal);
   renderWeekBreakdown(weeks);
+  renderPicksSelector(weeks, players.length);
 }
 
-function renderStandings(standings) {
+function renderPicksSelector(weeks, totalPlayers) {
+  const sel = document.getElementById('picksWeekSelect');
+  if (weeks.length === 0) {
+    sel.innerHTML = '';
+    document.getElementById('picksArea').innerHTML = `<p class="muted">No weeks set up yet.</p>`;
+    return;
+  }
+  sel.innerHTML = weeks.map(w =>
+    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? '' : ' (open)'}</option>`
+  ).join('');
+
+  const lastLocked = [...weeks].reverse().find(w => w.locked);
+  sel.value = (lastLocked || weeks[weeks.length - 1]).id;
+
+  sel.addEventListener('change', () => loadWeekPicks(sel.value, totalPlayers));
+  loadWeekPicks(sel.value, totalPlayers);
+}
+
+async function loadWeekPicks(weekId, totalPlayers) {
+  const area = document.getElementById('picksArea');
+  const week = allWeeksGlobal.find(w => w.id === weekId);
+  if (!week) { area.innerHTML = ''; return; }
+
+  const picks = await getAllPicksForWeek(weekId);
+
+  if (!week.locked) {
+    area.innerHTML = `<div class="banner info">Picks for ${escapeHtml(week.label || 'this week')} are still open — ${picks.length} of ${totalPlayers} player(s) have submitted so far. Check back after the admin locks the week!</div>`;
+    return;
+  }
+
+  if (picks.length === 0) {
+    area.innerHTML = `<div class="empty-state"><span class="emoji">🤷</span>No one submitted picks for this week.</div>`;
+    return;
+  }
+
+  area.innerHTML = picks
+    .sort((a, b) => a.playerName.localeCompare(b.playerName))
+    .map(p => {
+      const score = scorePick(p, week);
+      const teamsHtml = (p.pickedTeams || []).map(team => {
+        const game = (week.games || []).find(g => g.away === team || g.home === team);
+        const decided = game && game.winner;
+        const won = decided && ((game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
+        const cls = !decided ? 'pick-pending' : (won ? 'pick-correct' : 'pick-wrong');
+        return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
+      }).join('');
+      return `
+        <div class="standings-row" style="align-items:flex-start;">
+          ${playerBadgeImgTag(playersByIdGlobal[p.playerId], 36)}
+          <div style="flex:1;">
+            <div class="standings-name">${escapeHtml(p.playerName)}</div>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${teamsHtml}</div>
+          </div>
+          <div class="standings-points">${score.points}<span class="pts-label">PTS</span></div>
+        </div>`;
+    }).join('');
+}
+
+function renderStandings(standings, playersById) {
   const list = document.getElementById('standingsList');
   if (standings.length === 0) {
     list.innerHTML = `<div class="empty-state"><span class="emoji">📋</span>No picks scored yet. Once games get results, standings show up here.</div>`;
@@ -69,6 +145,7 @@ function renderStandings(standings) {
   list.innerHTML = standings.map((s, i) => `
     <li class="standings-row">
       <div class="jersey-num">${i + 1}</div>
+      ${playerBadgeImgTag(playersById[s.playerId], 32)}
       <div class="standings-name">${escapeHtml(s.playerName)}</div>
       <div class="standings-points">${s.points}<span class="pts-label">PTS</span></div>
     </li>
