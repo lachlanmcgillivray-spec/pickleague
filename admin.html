@@ -459,7 +459,8 @@ async function loadAdminPicksViewer() {
   sel.innerHTML = weeks.map(w =>
     `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? ' (locked)' : ' (open)'}</option>`
   ).join('');
-  sel.value = weeks[weeks.length - 1].id;
+  const unlocked = weeks.find(w => !w.locked);
+  sel.value = (unlocked || weeks[weeks.length - 1]).id;
 
   const render = async () => {
     const week = weeks.find(w => w.id === sel.value);
