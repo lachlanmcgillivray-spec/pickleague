@@ -83,6 +83,22 @@
 <main class="wrap">
   <div id="deadlineBanner"></div>
 
+  <div class="card" id="myRankCard" style="display:none; border:2px solid var(--gold); background:linear-gradient(135deg, #FFF8E6, var(--cream));">
+    <div style="display:flex; align-items:center; gap:14px;">
+      <span id="myRankBadge"></span>
+      <div style="flex:1;">
+        <div class="standings-name" id="myRankName" style="font-size:17px;"></div>
+        <div class="muted" id="myRankDetail"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="player-select-row">
+    <select id="myTeamSelect">
+      <option value="">Which team are you? (to spot yourself above)</option>
+    </select>
+  </div>
+
   <h2 class="section-title">🏆 Season leaderboard</h2>
   <ul class="standings-list" id="standingsList"></ul>
 
@@ -138,9 +154,58 @@ async function init() {
   playersByIdGlobal = {};
   players.forEach(p => { playersByIdGlobal[p.id] = p; });
 
-  renderStandings(computeStandings(weeks, allPicks), playersByIdGlobal);
+  const standings = computeStandings(weeks, allPicks);
+  renderStandings(standings, playersByIdGlobal);
   renderWeekBreakdown(weeks);
   renderPicksSelector(weeks, players.length);
+  setupMyRank(players, standings);
+}
+
+function setupMyRank(players, standings) {
+  const sel = document.getElementById('myTeamSelect');
+  sel.innerHTML = '<option value="">Which team are you? (to spot yourself above)</option>' +
+    players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+  const savedId = LocalPlayer.get();
+  if (savedId && players.some(p => p.id === savedId)) {
+    sel.value = savedId;
+    renderMyRank(savedId, players, standings);
+  }
+
+  sel.addEventListener('change', () => {
+    if (sel.value) LocalPlayer.set(sel.value);
+    renderMyRank(sel.value, players, standings);
+  });
+}
+
+function renderMyRank(playerId, players, standings) {
+  const card = document.getElementById('myRankCard');
+  if (!playerId) { card.style.display = 'none'; return; }
+
+  const player = players.find(p => p.id === playerId);
+  if (!player) { card.style.display = 'none'; return; }
+
+  const idx = standings.findIndex(s => s.playerId === playerId);
+  document.getElementById('myRankBadge').innerHTML = playerBadgeImgTag(player, 48);
+  document.getElementById('myRankName').textContent =
+    player.name + (player.kidName ? ` (${player.kidName})` : '');
+
+  if (idx === -1) {
+    document.getElementById('myRankDetail').textContent = "No picks scored yet — get your picks in!";
+  } else {
+    const rank = idx + 1;
+    const total = standings.length;
+    const pts = standings[idx].points;
+    document.getElementById('myRankDetail').textContent =
+      `Currently ${ordinal(rank)} of ${total} — ${pts} point${pts === 1 ? '' : 's'}`;
+  }
+  card.style.display = 'block';
+}
+
+function ordinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
 function renderPicksSelector(weeks, totalPlayers) {
@@ -194,7 +259,10 @@ async function loadWeekPicks(weekId, totalPlayers) {
         <div class="standings-row" style="align-items:flex-start;">
           ${playerBadgeImgTag(playersByIdGlobal[p.playerId], 36)}
           <div style="flex:1;">
-            <div class="standings-name">${escapeHtml(p.playerName)}</div>
+            <div class="standings-name">
+              ${escapeHtml(p.playerName)}
+              ${playersByIdGlobal[p.playerId]?.kidName ? `<span class="muted" style="font-size:12px; font-weight:400;"> — ${escapeHtml(playersByIdGlobal[p.playerId].kidName)}</span>` : ''}
+            </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${teamsHtml}</div>
           </div>
           <div class="standings-points">${score.points}<span class="pts-label">PTS</span></div>
@@ -208,14 +276,19 @@ function renderStandings(standings, playersById) {
     list.innerHTML = `<div class="empty-state"><span class="emoji">📋</span>No picks scored yet. Once games get results, standings show up here.</div>`;
     return;
   }
-  list.innerHTML = standings.map((s, i) => `
+  list.innerHTML = standings.map((s, i) => {
+    const kidName = playersById[s.playerId]?.kidName;
+    return `
     <li class="standings-row">
       <div class="jersey-num">${i + 1}</div>
       ${playerBadgeImgTag(playersById[s.playerId], 32)}
-      <div class="standings-name">${escapeHtml(s.playerName)}</div>
+      <div class="standings-name">
+        ${escapeHtml(s.playerName)}
+        ${kidName ? `<div class="muted" style="font-size:12px; font-weight:400;">${escapeHtml(kidName)}</div>` : ''}
+      </div>
       <div class="standings-points">${s.points}<span class="pts-label">PTS</span></div>
-    </li>
-  `).join('');
+    </li>`;
+  }).join('');
 }
 
 function renderWeekBreakdown(weeks) {
