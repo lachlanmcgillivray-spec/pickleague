@@ -435,14 +435,16 @@ async function loadRoster() {
     card.innerHTML = `<p class="muted">No one has joined yet.</p>`;
     return;
   }
-  card.innerHTML = `<p class="muted" style="margin-top:0;">Upload a fun badge image for each kid — it'll show next to their team name everywhere on the site. If a kid forgets their PIN, reset it here too.</p>` +
+  card.innerHTML = `<p class="muted" style="margin-top:0;">Add each kid's real first name (and last initial if needed) so parents can find them in the standings — it'll show as a small subtitle under their team name. Upload a fun badge image here too, and reset a forgotten PIN.</p>` +
     players.map(p => `
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);">
+      <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);">
         <div style="display:flex; align-items:center; gap:10px; min-width:0;">
           ${playerBadgeImgTag(p, 44)}
           <span style="overflow-wrap:anywhere;">${escapeHtml(p.name)}</span>
         </div>
-        <div style="display:flex; gap:8px; flex-shrink:0;">
+        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          <input type="text" placeholder="Kid's real name" value="${escapeHtml(p.kidName || '')}" data-kidname="${p.id}" style="max-width:160px;">
+          <button class="secondary" data-save-kidname="${p.id}" type="button">Save</button>
           <input type="file" accept="image/*" data-badge-file="${p.id}" style="display:none;">
           <button class="secondary" data-badge-btn="${p.id}" type="button">Badge</button>
           <button class="secondary" data-reset="${p.id}" type="button">Reset PIN</button>
@@ -450,6 +452,20 @@ async function loadRoster() {
         </div>
       </div>
     `).join('');
+
+  card.querySelectorAll('button[data-save-kidname]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const input = card.querySelector(`input[data-kidname="${btn.dataset.saveKidname}"]`);
+      const kidName = input.value.trim();
+      try {
+        await db.collection('players').doc(btn.dataset.saveKidname).update({ kidName });
+        btn.textContent = 'Saved!';
+        setTimeout(() => { btn.textContent = 'Save'; }, 1200);
+      } catch (e) {
+        alert('Could not save: ' + e.message);
+      }
+    });
+  });
 
   card.querySelectorAll('button[data-reset]').forEach(btn => {
     btn.addEventListener('click', async () => {
