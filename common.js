@@ -128,6 +128,17 @@ function pickDocId(weekId, playerId) {
   return `${weekId}_${playerId}`;
 }
 
+/** True if a week is locked either manually, or because its auto-lock time has passed. */
+function isWeekLocked(week) {
+  if (!week) return false;
+  if (week.locked) return true;
+  if (week.lockAt) {
+    const d = week.lockAt.toDate ? week.lockAt.toDate() : new Date(week.lockAt);
+    return d.getTime() <= Date.now();
+  }
+  return false;
+}
+
 async function getPick(weekId, playerId) {
   const doc = await db.collection('picks').doc(pickDocId(weekId, playerId)).get();
   return doc.exists ? doc.data() : null;
@@ -137,6 +148,23 @@ async function savePick(weekId, playerId, playerName, pickedTeams, pinHash) {
   await db.collection('picks').doc(pickDocId(weekId, playerId)).set({
     weekId, playerId, playerName, pickedTeams, pinHash,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+/** A player locks their own picks in — a one-way action from their side.
+ * Only an admin override can undo it after that. */
+async function lockMyPick(weekId, playerId) {
+  await db.collection('picks').doc(pickDocId(weekId, playerId)).update({
+    pickLocked: true,
+    lockedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+/** A player unlocks their own picks again, e.g. to fix a mistake before any of their
+ * games have started. Only flips the lock flag — doesn't touch the picks themselves. */
+async function unlockMyPick(weekId, playerId) {
+  await db.collection('picks').doc(pickDocId(weekId, playerId)).update({
+    pickLocked: false
   });
 }
 

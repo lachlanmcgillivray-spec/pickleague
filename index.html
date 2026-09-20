@@ -124,7 +124,11 @@
   <div id="gamesArea"></div>
 
   <div id="saveRow" style="display:none; text-align:center; margin-top: 10px;">
-    <button id="saveBtn" class="amber">Save my 3 picks</button>
+    <button id="lockPicksBtn" class="amber" type="button">Lock in my 3 picks 🔒</button>
+  </div>
+
+  <div id="unlockRow" style="display:none; text-align:center; margin-top: 10px;">
+    <button id="unlockPicksBtn" class="secondary" type="button">Made a mistake? Unlock my picks</button>
   </div>
 
   <img src="backdrop.jpg" alt="Any Given Sundae League" style="display:block; width:100%; height:auto; border-radius:16px; box-shadow:0 6px 18px rgba(16,31,69,0.14); margin:18px 0;">
@@ -156,6 +160,7 @@ let currentPinHash = '';    // the verified hash, attached to every pick save
 let players = [];
 let currentWeek = null;
 let selectedTeams = []; // up to 3 team names
+let myPickLocked = false; // has this player locked their own picks for the current week?
 
 async function init() {
   document.querySelector('.banner-logo').alt = LEAGUE_NAME;
@@ -171,7 +176,8 @@ async function init() {
   document.getElementById('joinBtn').addEventListener('click', onJoin);
   document.getElementById('playerSelect').addEventListener('change', onPlayerChange);
   document.getElementById('weekSelect').addEventListener('change', onWeekChange);
-  document.getElementById('saveBtn').addEventListener('click', onSave);
+  document.getElementById('lockPicksBtn').addEventListener('click', onLockMyPicks);
+  document.getElementById('unlockPicksBtn').addEventListener('click', onUnlockMyPicks);
   document.getElementById('lockBtn').addEventListener('click', onLockDevice);
 
   const savedId = LocalPlayer.get();
@@ -179,6 +185,9 @@ async function init() {
     document.getElementById('playerSelect').value = savedId;
     onPlayerChange();
   }
+
+  // Re-render every 30s so an auto-lock deadline takes effect live, without needing a refresh.
+  setInterval(() => { if (currentWeek) renderGames(); }, 30000);
 }
 
 async function refreshPlayers() {
@@ -379,9 +388,13 @@ async function loadWeek(weekId) {
 
 async function loadPickState() {
   selectedTeams = [];
+  myPickLocked = false;
   if (currentPlayerId && currentWeek && currentPinHash) {
     const existing = await getPick(currentWeek.id, currentPlayerId);
-    if (existing) selectedTeams = [...(existing.pickedTeams || [])];
+    if (existing) {
+      selectedTeams = [...(existing.pickedTeams || [])];
+      myPickLocked = !!existing.pickLocked;
+    }
   }
   renderGames();
 }
@@ -418,7 +431,16 @@ function renderGames() {
     return;
   }
 
-  if (currentWeek.locked) {
+  const weekLocked = isWeekLocked(currentWeek);
+  const locked = weekLocked || myPickLocked;
+
+  if (myPickLocked) {
+    const score = scorePick({ pickedTeams: selectedTeams }, currentWeek);
+    showBanner(score.anyPending ? 'info' : 'success',
+      score.anyPending
+        ? `🔒 You've locked in: ${selectedTeams.join(', ')} — waiting on results. Made a mistake? You can unlock below.`
+        : `🔒 Locked in — you scored ${score.points} point${score.points === 1 ? '' : 's'} this week${score.bonus ? ' (nice, perfect week bonus!)' : ''}.`);
+  } else if (weekLocked) {
     const existingPickForScore = { pickedTeams: selectedTeams };
     const score = scorePick(existingPickForScore, currentWeek);
     if (selectedTeams.length === 3) {
@@ -434,18 +456,26 @@ function renderGames() {
   counterRow.style.display = 'block';
   updatePickCounter();
 
+  document.getElementById('unlockRow').style.display =
+    (myPickLocked && !weekLocked) ? 'block' : 'none';
+
   area.innerHTML = `<div class="team-grid">${teams.map(t => {
     const selected = selectedTeams.includes(t.team);
-    const decided = currentWeek.games.find(g => g.id === t.gameId)?.winner;
+    const game = currentWeek.games.find(g => g.id === t.gameId);
+    const decided = game?.winner;
     const won = decided === t.side;
+    const gameStarted = game?.kickoffAt &&
+      (game.kickoffAt.toDate ? game.kickoffAt.toDate() : new Date(game.kickoffAt)).getTime() <= Date.now();
     const classes = ['team-tile'];
     if (selected) classes.push('selected');
     if (decided && won) classes.push('winner');
     if (decided && selected && !won) classes.push('locked-wrong');
-    const disableTile = currentWeek.locked || (!selected && selectedTeams.length >= 3);
+    if (gameStarted && !decided) classes.push('locked-wrong');
+    const disableTile = locked || gameStarted || decided || (!selected && selectedTeams.length >= 3);
 
     return `
-      <button class="${classes.join(' ')}" data-team="${escapeHtml(t.team)}" ${(currentWeek.locked || disableTile) && !selected ? 'disabled' : ''}>
+      <button class="${classes.join(' ')}" data-team="${escapeHtml(t.team)}" ${disableTile ? 'disabled' : ''}>
+        ${gameStarted && !decided ? '<span class="tile-crown">🔒</span>' : ''}
         ${decided && won ? '<span class="tile-crown">🏆</span>' : ''}
         ${teamLogoImgTag(t.team, 60)}
         <span class="tile-team-name">${escapeHtml(t.team)}</span>
@@ -453,7 +483,7 @@ function renderGames() {
       </button>`;
   }).join('')}</div>`;
 
-  if (!currentWeek.locked) {
+  if (!locked) {
     area.querySelectorAll('.team-tile').forEach(btn => {
       btn.addEventListener('click', () => {
         const team = btn.dataset.team;
@@ -467,36 +497,60 @@ function renderGames() {
     });
   }
 
-  saveRow.style.display = currentWeek.locked ? 'none' : 'block';
-  document.getElementById('saveBtn').disabled = selectedTeams.length !== 3;
+  saveRow.style.display = locked ? 'none' : 'block';
+  document.getElementById('lockPicksBtn').disabled = selectedTeams.length !== 3;
 }
 
 function updatePickCounter() {
   const counter = document.getElementById('pickCounter');
   const n = selectedTeams.length;
-  counter.textContent = currentWeek.locked
+  counter.textContent = (isWeekLocked(currentWeek) || myPickLocked)
     ? `Your picks: ${selectedTeams.join(', ') || 'none submitted'}`
     : `Pick 3 teams — ${n} of 3 selected${n === 3 ? ' ✅' : ''}`;
 }
 
-async function onSave() {
+async function onLockMyPicks() {
   if (!currentPlayerId || !currentWeek || !currentPinHash) return;
   if (selectedTeams.length !== 3) {
-    showBanner('error', 'Pick exactly 3 teams before saving.');
+    showBanner('error', 'Pick exactly 3 teams before locking.');
+    return;
+  }
+  if (!confirm("Lock in these 3 picks? You can unlock and change them again later if a game hasn't started yet.")) {
     return;
   }
   const playerName = document.getElementById('playerSelect').selectedOptions[0].textContent;
-  const btn = document.getElementById('saveBtn');
+  const btn = document.getElementById('lockPicksBtn');
   btn.disabled = true;
-  btn.textContent = 'Saving\u2026';
+  btn.textContent = 'Locking\u2026';
   try {
     await savePick(currentWeek.id, currentPlayerId, playerName, selectedTeams, currentPinHash);
-    showBanner('success', 'Picks saved! Good luck. 🧁');
+    await lockMyPick(currentWeek.id, currentPlayerId);
+    myPickLocked = true;
+    renderGames();
   } catch (e) {
-    showBanner('error', 'Could not save: ' + e.message);
+    showBanner('error', 'Could not lock: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = 'Lock in my 3 picks 🔒';
+  }
+}
+
+async function onUnlockMyPicks() {
+  if (!currentPlayerId || !currentWeek || !currentPinHash) return;
+  if (!confirm('Unlock your picks to make changes? Any games that have already started will stay frozen either way.')) {
+    return;
+  }
+  const btn = document.getElementById('unlockPicksBtn');
+  btn.disabled = true;
+  btn.textContent = 'Unlocking\u2026';
+  try {
+    await unlockMyPick(currentWeek.id, currentPlayerId);
+    myPickLocked = false;
+    renderGames();
+  } catch (e) {
+    showBanner('error', 'Could not unlock: ' + e.message);
   } finally {
-    btn.disabled = selectedTeams.length !== 3;
-    btn.textContent = 'Save my 3 picks';
+    btn.disabled = false;
+    btn.textContent = 'Made a mistake? Unlock my picks';
   }
 }
 
