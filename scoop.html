@@ -173,7 +173,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// SCOOP-PAGE-V1  (search View Source for this to confirm the live version)
+// SCOOP-PAGE-V3  (search View Source for this to confirm the live version)
 let players = [];
 let playersById = {};
 let weeks = [];
@@ -257,11 +257,21 @@ function enterAs(player) {
   }
   wsel.innerHTML = weeks.map(w =>
     `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}</option>`).join('');
-  // Same default as the picks page: the earliest week that isn't locked, else the latest.
-  const open = weeks.find(w => !isWeekLocked(w));
-  wsel.value = (open || weeks[weeks.length - 1]).id;
   wsel.onchange = () => loadWeek(wsel.value);
-  loadWeek(wsel.value);
+  pickDefaultWeek(player).then(id => { wsel.value = id; loadWeek(id); });
+}
+
+/** Opens on the most recent week this player has picks for (i.e. the current week),
+ * else the earliest week that isn't locked, else the latest week. */
+async function pickDefaultWeek(player) {
+  try {
+    const snap = await db.collection('picks').where('playerId', '==', player.id).get();
+    const pickedWeekIds = new Set(snap.docs.map(d => d.data().weekId));
+    const latestPicked = [...weeks].reverse().find(w => pickedWeekIds.has(w.id));
+    if (latestPicked) return latestPicked.id;
+  } catch (e) { console.error(e); }
+  const open = weeks.find(w => !isWeekLocked(w));
+  return (open || weeks[weeks.length - 1]).id;
 }
 
 async function loadWeek(weekId) {
@@ -275,7 +285,7 @@ async function loadWeek(weekId) {
   const weekName = week.label || ('Week ' + week.weekNumber);
 
   const mine = picks.find(p => p.playerId === viewer.id);
-  const iAmLockedIn = mine && mine.pickLocked === true && (mine.pickedTeams || []).length === 3;
+  const iAmLockedIn = mine && mine.pickLocked !== false && (mine.pickedTeams || []).length === 3;
 
   // The gate: you only get the scoop once your own 3 picks are locked in
   // (or once the whole week is locked, at which point it's no secret anyway).
@@ -295,7 +305,7 @@ async function loadWeek(weekId) {
 
   // Before the week locks, only show picks that are locked in (someone mid-edit isn't final).
   const shown = picks
-    .filter(p => (p.pickedTeams || []).length > 0 && (weekLocked || p.pickLocked === true))
+    .filter(p => (p.pickedTeams || []).length > 0 && (weekLocked || p.pickLocked !== false))
     .sort((a, b) => a.playerName.localeCompare(b.playerName));
   const shownIds = new Set(shown.map(p => p.playerId));
   const stillPicking = players.filter(p => !shownIds.has(p.id));
