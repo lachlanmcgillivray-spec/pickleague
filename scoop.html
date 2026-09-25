@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Scoop — Pick League</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="mascotFlankLeft" style="position:absolute; left:20px; width:130px; display:none; flex-direction:column; align-items:flex-start; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<div id="mascotFlankRight" style="position:absolute; right:20px; width:130px; display:none; flex-direction:column; align-items:flex-end; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<script>
+  (function () {
+    var leftTeams = ['bills','dolphins','patriots','jets','ravens','bengals','browns','steelers','texans','colts','jaguars','titans','broncos','chiefs','raiders','chargers'];
+    var rightTeams = ['cowboys','giants','eagles','commanders','bears','lions','packers','vikings','falcons','panthers','saints','buccaneers','cardinals','rams','49ers','seahawks'];
+    var REPEATS = 5; // repeats the 16-team sequence this many times down the page
+
+    function imgTag(team, mirror) {
+      var t = mirror ? 'transform:scaleX(-1); ' : '';
+      return '<img src="' + team + '.png" alt="" style="width:100%; height:auto; ' + t + 'filter:drop-shadow(0 6px 10px rgba(7,14,36,0.28));">';
+    }
+
+    function buildFlankHTML(teams, mirror) {
+      var html = '';
+      for (var r = 0; r < REPEATS; r++) {
+        teams.forEach(function (team) { html += imgTag(team, mirror); });
+      }
+      return html;
+    }
+
+    var leftEl = document.getElementById('mascotFlankLeft');
+    var rightEl = document.getElementById('mascotFlankRight');
+    if (leftEl) leftEl.innerHTML = buildFlankHTML(leftTeams, false);
+    if (rightEl) rightEl.innerHTML = buildFlankHTML(rightTeams, true);
+
+    function positionFlanks() {
+      var header = document.querySelector('.scoreboard');
+      var top = (header ? header.offsetHeight : 260) + 40;
+      if (leftEl) leftEl.style.top = top + 'px';
+      if (rightEl) rightEl.style.top = top + 'px';
+    }
+
+    function updateMascotFlanks() {
+      var show = window.innerWidth >= 900;
+      if (leftEl) leftEl.style.display = show ? 'flex' : 'none';
+      if (rightEl) rightEl.style.display = show ? 'flex' : 'none';
+    }
+
+    positionFlanks();
+    updateMascotFlanks();
+    window.addEventListener('resize', function () { positionFlanks(); updateMascotFlanks(); });
+    window.addEventListener('load', positionFlanks);
+
+    function updateWideLayout() {
+      var wide = window.innerWidth >= 1100;
+      document.querySelectorAll('.wrap, .scoreboard-inner').forEach(function (el) {
+        el.style.maxWidth = wide ? '1040px' : '';
+      });
+      document.body.style.fontSize = wide ? '17px' : '';
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateWideLayout);
+    } else {
+      updateWideLayout();
+    }
+    window.addEventListener('resize', updateWideLayout);
+  })();
+</script>
+
+<header class="scoreboard">
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;width:100%;max-width:none;height:auto;margin:0;">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueTag">EVERYONE'S PICKS</p>
+    <h1 class="week-display"><span class="digits">THE SCOOP</span></h1>
+    <nav class="nav-row">
+      <a class="nav-link" href="index.html">Make Picks</a>
+      <a class="nav-link" href="standings.html">Standings</a>
+      <a class="nav-link current" href="scoop.html">The Scoop</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  /* Scoop page styles live here (inline) so they can't get stuck behind a cached styles.css */
+  main.wrap { position:relative; z-index:1; }
+  .scoop-gate { border: 2px dashed var(--gold); }
+  .scoop-gate .gate-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+  .scoop-gate select { flex:1; min-width:180px; }
+  .scoop-lockout { text-align:center; padding:28px 20px; }
+  .scoop-lockout .big-emoji { font-size:44px; display:block; margin-bottom:6px; }
+  .scoop-lockout h2 { font-family:var(--font-fun); font-size:22px; margin:0 0 6px; color:var(--navy); }
+  .scoop-viewer { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .scoop-viewer .who { flex:1; font-weight:600; }
+  .scoop-viewer .switch-link { background:none; border:none; color:var(--ink-soft); text-decoration:underline; font-size:13px; padding:4px; cursor:pointer; box-shadow:none; }
+  .scoop-viewer .switch-link:hover { background:none; color:var(--navy); }
+
+  .scoop-count { font-family:var(--font-fun); font-weight:600; color:var(--navy); margin:0 0 14px; }
+  .scoop-toggle { display:inline-flex; background:#ECEAF6; border-radius:999px; padding:4px; margin-bottom:14px; }
+  .scoop-toggle button { background:transparent; color:var(--navy); padding:6px 14px; font-size:13px; border-radius:999px; box-shadow:none; }
+  .scoop-toggle button:hover { background:rgba(255,255,255,0.6); }
+  .scoop-toggle button.on { background:var(--navy); color:white; }
+
+  /* Popularity bars */
+  .tally-row { display:grid; grid-template-columns: 28px 30px minmax(90px, 150px) 1fr 44px; align-items:center; gap:8px; padding:6px 0; }
+  .tally-rank { font-family:var(--font-display); color:var(--ink-soft); text-align:center; }
+  .tally-team { font-family:var(--font-fun); font-weight:600; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tally-track { height:18px; background:#F2EEF4; border-radius:999px; overflow:hidden; }
+  .tally-fill { height:100%; background:var(--pink); border-radius:999px; min-width:6px; transition:width .5s ease; }
+  .tally-row.top .tally-fill { background:var(--gold); }
+  .tally-row.won .tally-fill { background:#3FAE5C; }
+  .tally-row.lost .tally-fill { background:#C9CBE0; }
+  .tally-num { font-family:var(--font-display); font-size:18px; color:var(--pink-dark); text-align:right; }
+  .tally-legend { font-size:12px; color:var(--ink-soft); margin-top:10px; }
+
+  /* Head-to-head by game */
+  .h2h { padding:10px 0; border-bottom:1px solid var(--line); }
+  .h2h:last-child { border-bottom:none; }
+  .h2h-names { display:flex; justify-content:space-between; gap:8px; font-family:var(--font-fun); font-weight:600; font-size:14px; margin-bottom:6px; }
+  .h2h-names span { display:inline-flex; align-items:center; gap:4px; }
+  .h2h-bar { display:flex; height:22px; border-radius:999px; overflow:hidden; background:#F2EEF4; }
+  .h2h-bar div { display:flex; align-items:center; font-family:var(--font-display); font-size:13px; color:white; transition:width .5s ease; }
+  .h2h-away { background:var(--navy); justify-content:flex-start; padding-left:8px; }
+  .h2h-home { background:var(--pink); justify-content:flex-end; padding-right:8px; }
+  .h2h-none { font-size:12px; color:var(--ink-soft); }
+
+  .standings-row.me { border:2px solid var(--gold); background:linear-gradient(135deg, #FFF8E6, white); }
+  .still-picking { font-size:14px; color:var(--ink-soft); margin-top:6px; }
+
+  @media (max-width: 520px) {
+    .tally-row { grid-template-columns: 22px 24px minmax(0, 1fr) 72px 28px; gap:6px; }
+    .tally-team { font-size:13px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tally-fill, .h2h-bar div { transition:none; }
+  }
+</style>
+
+<main class="wrap">
+
+  <!-- Step 1: who are you? -->
+  <div class="card scoop-gate" id="gateCard" style="display:none;">
+    <h2 class="section-title" style="margin-top:0;">🍦 Get the scoop</h2>
+    <p class="muted" style="margin-top:0;">Lock in your 3 picks for the week, then come here to see what everyone else picked.</p>
+    <div class="gate-row">
+      <select id="playerSelect"><option value="">Choose your team name&hellip;</option></select>
+      <input type="text" id="pinInput" placeholder="6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+      <button id="enterBtn">Let me in</button>
+    </div>
+    <div id="gateBanner" style="margin-top:12px;"></div>
+  </div>
+
+  <!-- Step 2: signed in -->
+  <div id="insideArea" style="display:none;">
+    <div class="card scoop-viewer">
+      <span id="viewerBadge"></span>
+      <div class="who" id="viewerName"></div>
+      <select id="weekSelect" style="max-width:200px;"></select>
+      <button class="switch-link" id="switchBtn">Not you?</button>
+    </div>
+
+    <div id="weekContent"></div>
+  </div>
+
+  <div id="loadingNote" class="muted" style="text-align:center; padding:30px;">Loading…</div>
+</main>
+
+<p class="footer-note">🍦 Picks show up here as soon as each player locks them in.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+// SCOOP-PAGE-V1  (search View Source for this to confirm the live version)
+let players = [];
+let playersById = {};
+let weeks = [];
+let viewer = null;          // the verified player doc
+let tallyMode = 'popular';  // 'popular' | 'games'
+
+async function init() {
+  document.querySelector('.banner-logo').alt = LEAGUE_NAME;
+  await ensureSignedIn();
+  [players, weeks] = await Promise.all([getPlayers(), getWeeks()]);
+  playersById = {};
+  players.forEach(p => { playersById[p.id] = p; });
+
+  document.getElementById('loadingNote').style.display = 'none';
+
+  const sel = document.getElementById('playerSelect');
+  sel.innerHTML = '<option value="">Choose your team name&hellip;</option>' +
+    players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+  document.getElementById('enterBtn').addEventListener('click', onEnter);
+  document.getElementById('pinInput').addEventListener('keydown', e => { if (e.key === 'Enter') onEnter(); });
+  document.getElementById('switchBtn').addEventListener('click', onSwitch);
+
+  // If this browser already unlocked this player on the picks page, skip the PIN.
+  const savedId = LocalPlayer.get();
+  const saved = savedId && playersById[savedId];
+  if (saved) sel.value = saved.id;
+  if (saved && saved.pinHash && UnlockedPlayers.isUnlocked(saved.id)) {
+    enterAs(saved);
+  } else {
+    showGate();
+  }
+}
+
+function showGate() {
+  viewer = null;
+  document.getElementById('gateCard').style.display = 'block';
+  document.getElementById('insideArea').style.display = 'none';
+}
+
+async function onEnter() {
+  const banner = document.getElementById('gateBanner');
+  const id = document.getElementById('playerSelect').value;
+  const pin = document.getElementById('pinInput').value.trim();
+  banner.innerHTML = '';
+  if (!id) { banner.innerHTML = `<div class="banner error">Pick your team name first.</div>`; return; }
+  const player = playersById[id];
+  if (!player.pinHash) {
+    banner.innerHTML = `<div class="banner error">You don't have a PIN yet — set one up on the <a href="index.html">Make Picks</a> page first.</div>`;
+    return;
+  }
+  if (!(await verifyPlayerPin(player, pin))) {
+    banner.innerHTML = `<div class="banner error">That PIN doesn't match. Try again.</div>`;
+    return;
+  }
+  LocalPlayer.set(player.id);
+  UnlockedPlayers.unlock(player.id);
+  document.getElementById('pinInput').value = '';
+  enterAs(player);
+}
+
+function onSwitch() {
+  if (viewer) UnlockedPlayers.lock(viewer.id);
+  document.getElementById('playerSelect').value = '';
+  showGate();
+}
+
+function enterAs(player) {
+  viewer = player;
+  document.getElementById('gateCard').style.display = 'none';
+  document.getElementById('insideArea').style.display = 'block';
+  document.getElementById('viewerBadge').innerHTML = playerBadgeImgTag(player, 40);
+  document.getElementById('viewerName').textContent = player.name;
+
+  const wsel = document.getElementById('weekSelect');
+  if (weeks.length === 0) {
+    wsel.style.display = 'none';
+    document.getElementById('weekContent').innerHTML =
+      `<div class="banner info">No weeks set up yet. Check back soon!</div>`;
+    return;
+  }
+  wsel.innerHTML = weeks.map(w =>
+    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}</option>`).join('');
+  // Same default as the picks page: the earliest week that isn't locked, else the latest.
+  const open = weeks.find(w => !isWeekLocked(w));
+  wsel.value = (open || weeks[weeks.length - 1]).id;
+  wsel.onchange = () => loadWeek(wsel.value);
+  loadWeek(wsel.value);
+}
+
+async function loadWeek(weekId) {
+  const area = document.getElementById('weekContent');
+  area.innerHTML = `<p class="muted" style="text-align:center;">Loading…</p>`;
+
+  const week = await getWeek(weekId);
+  if (!week) { area.innerHTML = ''; return; }
+  const picks = await getAllPicksForWeek(weekId);
+  const weekLocked = isWeekLocked(week);
+  const weekName = week.label || ('Week ' + week.weekNumber);
+
+  const mine = picks.find(p => p.playerId === viewer.id);
+  const iAmLockedIn = mine && mine.pickLocked === true && (mine.pickedTeams || []).length === 3;
+
+  // The gate: you only get the scoop once your own 3 picks are locked in
+  // (or once the whole week is locked, at which point it's no secret anyway).
+  if (!iAmLockedIn && !weekLocked) {
+    const unlockedAfter = mine && mine.pickLocked === false;
+    area.innerHTML = `
+      <div class="card scoop-lockout">
+        <span class="big-emoji">🔒</span>
+        <h2>${unlockedAfter ? 'Your picks are unlocked right now' : 'Lock in your picks first!'}</h2>
+        <p class="muted">${unlockedAfter
+          ? `Lock your 3 picks back in for ${escapeHtml(weekName)} and the scoop opens right back up.`
+          : `Once your 3 picks for ${escapeHtml(weekName)} are locked in, you'll see what everyone else picked.`}</p>
+        <a class="btn" href="index.html" style="display:inline-block; text-decoration:none; margin-top:6px;">Go make my picks 🏈</a>
+      </div>`;
+    return;
+  }
+
+  // Before the week locks, only show picks that are locked in (someone mid-edit isn't final).
+  const shown = picks
+    .filter(p => (p.pickedTeams || []).length > 0 && (weekLocked || p.pickLocked === true))
+    .sort((a, b) => a.playerName.localeCompare(b.playerName));
+  const shownIds = new Set(shown.map(p => p.playerId));
+  const stillPicking = players.filter(p => !shownIds.has(p.id));
+
+  area.innerHTML = `
+    <div class="card">
+      <h2 class="section-title" style="margin-top:0;">📊 ${escapeHtml(weekName)} tally</h2>
+      <p class="scoop-count">${shown.length} of ${players.length} player${players.length === 1 ? '' : 's'} locked in</p>
+      <div class="scoop-toggle" role="tablist">
+        <button data-mode="popular" class="${tallyMode === 'popular' ? 'on' : ''}">Most picked</button>
+        <button data-mode="games" class="${tallyMode === 'games' ? 'on' : ''}">By game</button>
+      </div>
+      <div id="tallyArea"></div>
+    </div>
+
+    <h2 class="section-title" style="margin-top:24px;">🔍 Everyone's picks</h2>
+    <div id="picksList"></div>
+    ${stillPicking.length && !weekLocked
+      ? `<p class="still-picking">⏳ Still picking: ${stillPicking.map(p => escapeHtml(p.name)).join(', ')}</p>`
+      : ''}`;
+
+  area.querySelectorAll('.scoop-toggle button').forEach(b => {
+    b.addEventListener('click', () => {
+      tallyMode = b.dataset.mode;
+      area.querySelectorAll('.scoop-toggle button').forEach(x => x.classList.toggle('on', x === b));
+      renderTally(week, shown);
+    });
+  });
+
+  renderTally(week, shown);
+  renderPicks(week, shown);
+}
+
+function countTeams(picks) {
+  const counts = {};
+  picks.forEach(p => (p.pickedTeams || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+  return counts;
+}
+
+/** 'won' | 'lost' | null for a team this week */
+function teamResult(week, team) {
+  const g = (week.games || []).find(g => g.away === team || g.home === team);
+  if (!g || !g.winner) return null;
+  const winnerName = g.winner === 'away' ? g.away : g.home;
+  return winnerName === team ? 'won' : 'lost';
+}
+
+function renderTally(week, shown) {
+  const el = document.getElementById('tallyArea');
+  if (shown.length === 0) {
+    el.innerHTML = `<div class="empty-state"><span class="emoji">🤷</span>No locked-in picks yet.</div>`;
+    return;
+  }
+  const counts = countTeams(shown);
+  if (tallyMode === 'games') { el.innerHTML = renderByGame(week, counts); return; }
+
+  const rows = Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const max = rows[0][1];
+  let rank = 0, prev = null;
+  const anyResults = rows.some(([team]) => teamResult(week, team));
+
+  const html = rows.map(([team, n], i) => {
+    if (n !== prev) { rank = i + 1; prev = n; }
+    const result = teamResult(week, team);
+    const cls = result ? result : (rank === 1 ? 'top' : '');
+    const pct = Math.round((n / shown.length) * 100);
+    return `
+      <div class="tally-row ${cls}" title="${n} of ${shown.length} players (${pct}%)">
+        <div class="tally-rank">${rank === 1 ? '👑' : rank}</div>
+        <div>${teamLogoImgTag(team, 26)}</div>
+        <div class="tally-team">${escapeHtml(team)}</div>
+        <div class="tally-track"><div class="tally-fill" style="width:${(n / max) * 100}%"></div></div>
+        <div class="tally-num">${n}</div>
+      </div>`;
+  }).join('');
+
+  const unpicked = (week.games || []).flatMap(g => [g.away, g.home]).filter(t => !counts[t]);
+  el.innerHTML = html +
+    (unpicked.length ? `<p class="tally-legend">Nobody picked: ${unpicked.map(escapeHtml).join(', ')}</p>` : '') +
+    (anyResults ? `<p class="tally-legend">🟢 green = won &nbsp; ⚪ grey = lost</p>` : '');
+}
+
+function renderByGame(week, counts) {
+  const games = week.games || [];
+  if (games.length === 0) return `<p class="muted">No games set up for this week.</p>`;
+  return games.map(g => {
+    const a = counts[g.away] || 0, h = counts[g.home] || 0, total = a + h;
+    const res = g.winner ? (g.winner === 'away' ? ' ✅' : '') : '';
+    const resH = g.winner ? (g.winner === 'home' ? ' ✅' : '') : '';
+    const bar = total === 0
+      ? `<div class="h2h-none">Nobody picked this game</div>`
+      : `<div class="h2h-bar">
+           ${a ? `<div class="h2h-away" style="width:${(a / total) * 100}%">${a}</div>` : ''}
+           ${h ? `<div class="h2h-home" style="width:${(h / total) * 100}%">${h}</div>` : ''}
+         </div>`;
+    return `
+      <div class="h2h">
+        <div class="h2h-names">
+          <span>${teamLogoImgTag(g.away, 20)}${escapeHtml(g.away)}${res}</span>
+          <span>${escapeHtml(g.home)}${resH}${teamLogoImgTag(g.home, 20)}</span>
+        </div>
+        ${bar}
+      </div>`;
+  }).join('');
+}
+
+function renderPicks(week, shown) {
+  const el = document.getElementById('picksList');
+  if (shown.length === 0) { el.innerHTML = ''; return; }
+  const anyDecided = (week.games || []).some(g => g.winner);
+
+  // Put the viewer's own row first so they can compare easily.
+  const ordered = [...shown].sort((a, b) =>
+    (b.playerId === viewer.id) - (a.playerId === viewer.id) || a.playerName.localeCompare(b.playerName));
+
+  el.innerHTML = ordered.map(p => {
+    const player = playersById[p.playerId];
+    const isMe = p.playerId === viewer.id;
+    const score = scorePick(p, week);
+    const chips = (p.pickedTeams || []).map(team => {
+      const r = teamResult(week, team);
+      const cls = r === 'won' ? 'pick-correct' : r === 'lost' ? 'pick-wrong' : 'pick-pending';
+      return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
+    }).join('');
+    return `
+      <div class="standings-row ${isMe ? 'me' : ''}" style="align-items:flex-start;">
+        ${playerBadgeImgTag(player, 36)}
+        <div style="flex:1;">
+          <div class="standings-name">
+            ${escapeHtml(p.playerName)}${isMe ? ' <span class="muted" style="font-size:12px;">(you)</span>' : ''}
+            ${player && player.kidName ? `<span class="muted" style="font-size:12px; font-weight:400;"> — ${escapeHtml(player.kidName)}</span>` : ''}
+          </div>
+          <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${chips}</div>
+        </div>
+        ${anyDecided ? `<div class="standings-points">${score.points}<span class="pts-label">PTS</span></div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+init().catch(err => {
+  console.error(err);
+  document.getElementById('loadingNote').innerHTML =
+    `<div class="banner error">Something went wrong loading the page. Try refreshing.</div>`;
+});
+</script>
+</body>
+</html>
