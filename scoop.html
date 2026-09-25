@@ -134,6 +134,22 @@
   @media (prefers-reduced-motion: reduce) {
     .tally-fill, .h2h-bar div { transition:none; }
   }
+  /* Category showdown */
+  .cat-row { padding:9px 0; border-bottom:1px solid var(--line); }
+  .cat-row:last-child { border-bottom:none; }
+  .cat-head { display:flex; align-items:baseline; gap:8px; margin-bottom:5px; }
+  .cat-name { flex:1; font-family:var(--font-fun); font-weight:700; font-size:15px; color:var(--navy); }
+  .cat-name .cat-emoji { margin-right:4px; }
+  .cat-stat { font-size:13px; color:var(--ink-soft); white-space:nowrap; }
+  .cat-stat strong { font-family:var(--font-display); font-weight:400; font-size:17px; color:var(--pink-dark); }
+  .cat-track { display:flex; height:16px; background:#F2EEF4; border-radius:999px; overflow:hidden; }
+  .cat-track div { height:100%; transition:width .5s ease; }
+  .cat-won { background:#3FAE5C; }
+  .cat-lost { background:#C9CBE0; }
+  .cat-pending { background:repeating-linear-gradient(45deg, var(--gold) 0 6px, #FFD865 6px 12px); }
+  .cat-teams { font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .cat-badges { display:inline-block; white-space:nowrap; font-size:12px; font-weight:600; color:var(--navy); margin-left:6px; }
+  @media (prefers-reduced-motion: reduce) { .cat-track div { transition:none; } }
 </style>
 
 <main class="wrap">
@@ -173,12 +189,37 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// SCOOP-PAGE-V3  (search View Source for this to confirm the live version)
+// SCOOP-PAGE-V4  (search View Source for this to confirm the live version)
 let players = [];
 let playersById = {};
 let weeks = [];
 let viewer = null;          // the verified player doc
 let tallyMode = 'popular';  // 'popular' | 'games'
+let catMode = 'week';       // 'week' | 'season'
+let seasonPicksCache = null;
+
+/** The draft-kit categories. Teams match on their nickname (last word), like the logos do. */
+const CATEGORIES = [
+  { name: 'Big Cats',            emoji: '🐾', teams: ['lions', 'bengals', 'jaguars', 'panthers'] },
+  { name: 'Breaking the Law',    emoji: '🚔', teams: ['buccaneers', 'raiders', 'cowboys', 'vikings', 'patriots'] },
+  { name: 'The Wild West',       emoji: '🌵', teams: ['bills', 'texans', 'chiefs'] },
+  { name: 'Gods & Monsters',     emoji: '✨', teams: ['saints', 'giants', 'titans'] },
+  { name: 'Working 9-5',         emoji: '🕘', teams: ['packers', 'steelers', 'commanders'] },
+  { name: 'Angry Birds',         emoji: '🐦', teams: ['cardinals', 'falcons', 'ravens', 'eagles', 'seahawks'] },
+  { name: 'The Elements',        emoji: '🔥', teams: ['dolphins', 'bears', 'chargers', '49ers'] },
+  { name: 'Old McNFL Had a Farm', emoji: '🚜', teams: ['broncos', 'colts', 'rams'] },
+  { name: 'The Factory of Sadness', emoji: '🏭', teams: ['jets', 'browns'] }
+];
+
+function teamKey(teamName) {
+  const words = String(teamName || '').trim().split(/\s+/);
+  return words[words.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function categoryOf(teamName) {
+  const key = teamKey(teamName);
+  return CATEGORIES.find(c => c.teams.includes(key)) || null;
+}
 
 async function init() {
   document.querySelector('.banner-logo').alt = LEAGUE_NAME;
@@ -321,6 +362,16 @@ async function loadWeek(weekId) {
       <div id="tallyArea"></div>
     </div>
 
+    <div class="card">
+      <h2 class="section-title" style="margin-top:0;">🏟️ Category showdown</h2>
+      <p class="muted" style="margin-top:0;">Which draft-kit category are the kids betting on, and which one is actually paying off?</p>
+      <div class="scoop-toggle" id="catToggle">
+        <button data-mode="week" class="${catMode === 'week' ? 'on' : ''}">This week</button>
+        <button data-mode="season" class="${catMode === 'season' ? 'on' : ''}">Season so far</button>
+      </div>
+      <div id="catArea"></div>
+    </div>
+
     <h2 class="section-title" style="margin-top:24px;">🔍 Everyone's picks</h2>
     <div id="picksList"></div>
     ${stillPicking.length && !weekLocked
@@ -335,8 +386,107 @@ async function loadWeek(weekId) {
     });
   });
 
+  document.querySelectorAll('#catToggle button').forEach(b => {
+    b.addEventListener('click', () => {
+      catMode = b.dataset.mode;
+      document.querySelectorAll('#catToggle button').forEach(x => x.classList.toggle('on', x === b));
+      renderCategories(week, shown);
+    });
+  });
+
   renderTally(week, shown);
+  renderCategories(week, shown);
   renderPicks(week, shown);
+}
+
+/** Adds up picks per category. picksWithWeek: [{ pick, week }] */
+function tallyCategories(picksWithWeek) {
+  const rows = CATEGORIES.map(c => ({ cat: c, picks: 0, won: 0, lost: 0 }));
+  picksWithWeek.forEach(({ pick, week }) => {
+    (pick.pickedTeams || []).forEach(team => {
+      const c = categoryOf(team);
+      if (!c) return;
+      const row = rows.find(r => r.cat === c);
+      row.picks += 1;
+      const r = teamResult(week, team);
+      if (r === 'won') row.won += 1;
+      else if (r === 'lost') row.lost += 1;
+    });
+  });
+  return rows;
+}
+
+/** Season picks the viewer is allowed to see: every locked week, plus open weeks
+ * they've locked into themselves (same rule as the week view). */
+async function getSeasonPicksWithWeek() {
+  if (!seasonPicksCache) seasonPicksCache = await getAllPicks();
+  const weeksById = {};
+  weeks.forEach(w => { weeksById[w.id] = w; });
+  const viewerIn = new Set(seasonPicksCache
+    .filter(p => p.playerId === viewer.id && p.pickLocked !== false && (p.pickedTeams || []).length === 3)
+    .map(p => p.weekId));
+  return seasonPicksCache
+    .filter(p => weeksById[p.weekId] && (p.pickedTeams || []).length > 0)
+    .filter(p => {
+      const w = weeksById[p.weekId];
+      if (isWeekLocked(w)) return true;
+      return viewerIn.has(p.weekId) && p.pickLocked !== false;
+    })
+    .map(p => ({ pick: p, week: weeksById[p.weekId] }));
+}
+
+async function renderCategories(week, shown) {
+  const el = document.getElementById('catArea');
+  if (!el) return;
+  let data;
+  if (catMode === 'season') {
+    el.innerHTML = `<p class="muted">Adding up the season…</p>`;
+    try { data = await getSeasonPicksWithWeek(); }
+    catch (e) { console.error(e); el.innerHTML = `<div class="banner error">Couldn't load season picks.</div>`; return; }
+    if (catMode !== 'season') return; // switched back while loading
+  } else {
+    data = shown.map(p => ({ pick: p, week }));
+  }
+
+  const rows = tallyCategories(data).filter(r => r.picks > 0);
+  if (rows.length === 0) {
+    el.innerHTML = `<div class="empty-state"><span class="emoji">🤷</span>No picks to count yet.</div>`;
+    return;
+  }
+
+  rows.sort((a, b) => b.picks - a.picks || b.won - a.won || a.cat.name.localeCompare(b.cat.name));
+  const maxPicks = rows[0].picks;
+  const anyResults = rows.some(r => r.won + r.lost > 0);
+  const maxWon = Math.max(...rows.map(r => r.won));
+  const unpicked = CATEGORIES.filter(c => !rows.some(r => r.cat === c));
+
+  el.innerHTML = rows.map(r => {
+    const pending = r.picks - r.won - r.lost;
+    const scale = 100 / maxPicks;
+    const decided = r.won + r.lost;
+    const rate = decided ? Math.round((r.won / decided) * 100) : null;
+    const badges = [
+      r.picks === maxPicks ? '🔥 most picked' : '',
+      anyResults && r.won === maxWon && maxWon > 0 ? '👑 most wins' : ''
+    ].filter(Boolean).join('  ');
+    const stat = anyResults
+      ? `<strong>${r.won}</strong> won of ${r.picks} pick${r.picks === 1 ? '' : 's'}${catMode === 'season' && rate !== null ? ` (${rate}%)` : ''}`
+      : `<strong>${r.picks}</strong> pick${r.picks === 1 ? '' : 's'}`;
+    return `
+      <div class="cat-row">
+        <div class="cat-head">
+          <div class="cat-name"><span class="cat-emoji">${r.cat.emoji}</span>${escapeHtml(r.cat.name)}${badges ? `<span class="cat-badges">${badges}</span>` : ''}</div>
+          <div class="cat-stat">${stat}</div>
+        </div>
+        <div class="cat-track">
+          ${r.won ? `<div class="cat-won" style="width:${r.won * scale}%"></div>` : ''}
+          ${r.lost ? `<div class="cat-lost" style="width:${r.lost * scale}%"></div>` : ''}
+          ${pending ? `<div class="cat-pending" style="width:${pending * scale}%"></div>` : ''}
+        </div>
+      </div>`;
+  }).join('') +
+  (unpicked.length ? `<p class="tally-legend">No love for: ${unpicked.map(c => c.emoji + ' ' + escapeHtml(c.name)).join(', ')}</p>` : '') +
+  `<p class="tally-legend">🟢 won &nbsp; ⚪ lost &nbsp; 🟡 not played yet</p>`;
 }
 
 function countTeams(picks) {
