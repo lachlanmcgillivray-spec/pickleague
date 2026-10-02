@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harvest Bowl — Pick League</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div id="mascotFlankLeft" style="position:absolute; left:20px; width:130px; display:none; flex-direction:column; align-items:flex-start; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<div id="mascotFlankRight" style="position:absolute; right:20px; width:130px; display:none; flex-direction:column; align-items:flex-end; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<script>
+  (function () {
+    var leftTeams = ['bills','dolphins','patriots','jets','ravens','bengals','browns','steelers','texans','colts','jaguars','titans','broncos','chiefs','raiders','chargers'];
+    var rightTeams = ['cowboys','giants','eagles','commanders','bears','lions','packers','vikings','falcons','panthers','saints','buccaneers','cardinals','rams','49ers','seahawks'];
+    var REPEATS = 5; // repeats the 16-team sequence this many times down the page
+
+    function imgTag(team, mirror) {
+      var t = mirror ? 'transform:scaleX(-1); ' : '';
+      return '<img src="' + team + '.png" alt="" style="width:100%; height:auto; ' + t + 'filter:drop-shadow(0 6px 10px rgba(7,14,36,0.28));">';
+    }
+
+    function buildFlankHTML(teams, mirror) {
+      var html = '';
+      for (var r = 0; r < REPEATS; r++) {
+        teams.forEach(function (team) { html += imgTag(team, mirror); });
+      }
+      return html;
+    }
+
+    var leftEl = document.getElementById('mascotFlankLeft');
+    var rightEl = document.getElementById('mascotFlankRight');
+    if (leftEl) leftEl.innerHTML = buildFlankHTML(leftTeams, false);
+    if (rightEl) rightEl.innerHTML = buildFlankHTML(rightTeams, true);
+
+    function positionFlanks() {
+      var header = document.querySelector('.scoreboard');
+      var top = (header ? header.offsetHeight : 260) + 40;
+      if (leftEl) leftEl.style.top = top + 'px';
+      if (rightEl) rightEl.style.top = top + 'px';
+    }
+
+    function updateMascotFlanks() {
+      var show = window.innerWidth >= 900;
+      if (leftEl) leftEl.style.display = show ? 'flex' : 'none';
+      if (rightEl) rightEl.style.display = show ? 'flex' : 'none';
+    }
+
+    positionFlanks();
+    updateMascotFlanks();
+    window.addEventListener('resize', function () { positionFlanks(); updateMascotFlanks(); });
+    window.addEventListener('load', positionFlanks);
+
+    function updateWideLayout() {
+      var wide = window.innerWidth >= 1100;
+      document.querySelectorAll('.wrap, .scoreboard-inner').forEach(function (el) {
+        el.style.maxWidth = wide ? '1040px' : '';
+      });
+      document.body.style.fontSize = wide ? '17px' : '';
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateWideLayout);
+    } else {
+      updateWideLayout();
+    }
+    window.addEventListener('resize', updateWideLayout);
+  })();
+</script>
+
+<header class="scoreboard">
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;width:100%;max-width:none;height:auto;margin:0;">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueTag">THANKSGIVING WEEKEND MINI-COMP</p>
+    <h1 class="week-display"><span class="digits">HARVEST BOWL</span></h1>
+    <nav class="nav-row">
+      <a class="nav-link" href="index.html">Make Picks</a>
+      <a class="nav-link" href="standings.html">Standings</a>
+      <a class="nav-link" href="scoop.html">The Scoop</a>
+      <a class="nav-link current" href="harvest.html">Harvest Bowl</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  /* Harvest Bowl styles live inline so a cached styles.css can't break them */
+  :root { --pumpkin:#E8742B; --pumpkin-dark:#B4541A; --cranberry:#B3263A; --harvest-cream:#FFF4E2; }
+  main.wrap { position:relative; z-index:1; }
+  .scoreboard .digits { color:var(--pumpkin); }
+
+  .hb-hero { background:linear-gradient(160deg, #FFF4E2 0%, #FFE6C7 100%); border:2px solid var(--pumpkin); text-align:center; padding:22px 20px; }
+  .hb-hero .turkey { font-size:52px; line-height:1; display:block; }
+  .hb-hero h2 { font-family:var(--font-display); font-weight:400; font-size:30px; letter-spacing:0.5px; color:var(--navy); margin:8px 0 4px; }
+  .hb-hero p { margin:4px auto; max-width:46ch; color:var(--ink); }
+  .hb-countdown { display:inline-block; margin-top:10px; background:var(--navy); color:white; font-family:var(--font-fun); font-weight:600; padding:6px 14px; border-radius:999px; font-size:14px; }
+  .hb-countdown.closed { background:var(--cranberry); }
+
+  .hb-q { margin-bottom:14px; }
+  .hb-q-head { display:flex; align-items:baseline; gap:10px; margin-bottom:10px; }
+  .hb-q-num { font-family:var(--font-display); font-size:22px; color:var(--pumpkin); min-width:22px; }
+  .hb-q-title { flex:1; font-family:var(--font-fun); font-weight:700; font-size:17px; color:var(--navy); }
+  .hb-q-pts { font-size:12px; font-weight:700; color:var(--pumpkin-dark); background:#FFE6C7; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .hb-q-hint { font-size:13px; color:var(--ink-soft); margin:-4px 0 10px 32px; }
+
+  .hb-teams { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hb-team { display:flex; flex-direction:column; align-items:center; gap:6px; padding:12px 8px; background:white; color:var(--navy);
+             border:2px solid var(--line); border-radius:14px; font-family:var(--font-fun); font-weight:600; font-size:15px; cursor:pointer; box-shadow:none; text-align:center; }
+  .hb-team:hover { border-color:var(--pumpkin); background:#FFFaf3; }
+  .hb-team:focus-visible { outline:3px solid var(--navy); outline-offset:2px; }
+  .hb-team.on { border-color:var(--pumpkin); background:#FFE6C7; box-shadow:0 0 0 2px var(--pumpkin) inset; }
+  .hb-team .where { font-size:11px; font-weight:500; color:var(--ink-soft); }
+  .hb-team[disabled] { cursor:default; opacity:.75; }
+
+  /* The one bold element: the Golden Drumstick */
+  .hb-drumstick { position:relative; overflow:hidden; border:3px solid var(--gold-dark);
+                  background:radial-gradient(circle at 85% 15%, #FFF1B8 0%, #FFD965 45%, #F5B830 100%); }
+  .hb-drumstick::after { content:'🍗'; position:absolute; right:-6px; top:-14px; font-size:96px; opacity:.22; transform:rotate(-18deg); pointer-events:none; }
+  .hb-drumstick .hb-q-num, .hb-drumstick .hb-q-title { color:var(--navy-dark); }
+  .hb-drumstick .hb-q-pts { background:var(--navy); color:var(--gold); }
+  .hb-drumstick .hb-q-hint { color:#5a4300; }
+  .hb-drumstick .hb-team { border-color:rgba(16,31,69,.18); }
+
+  .hb-guess { display:flex; align-items:center; justify-content:center; gap:10px; }
+  .hb-guess button { width:48px; height:48px; border-radius:50%; font-size:24px; padding:0; background:var(--navy); }
+  .hb-guess input[type="number"] { width:110px; text-align:center; font-family:var(--font-display); font-size:30px; padding:6px; }
+
+  .hb-save-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .hb-save-row button { background:var(--pumpkin); font-size:17px; padding:12px 22px; }
+  .hb-save-row button:hover { background:var(--pumpkin-dark); }
+  .hb-progress { font-family:var(--font-fun); font-weight:600; color:var(--navy); }
+
+  .hb-viewer { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .hb-viewer .who { flex:1; font-weight:600; }
+  .hb-viewer .switch-link { background:none; border:none; color:var(--ink-soft); text-decoration:underline; font-size:13px; padding:4px; cursor:pointer; box-shadow:none; }
+
+  .hb-board-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:white; margin-bottom:8px; box-shadow:var(--shadow); }
+  .hb-board-row.me { border:2px solid var(--gold); }
+  .hb-rank { font-family:var(--font-display); font-size:22px; color:var(--pumpkin); min-width:34px; text-align:center; }
+  .hb-board-name { flex:1; min-width:0; }
+  .hb-board-name strong { font-family:var(--font-fun); font-size:16px; color:var(--navy); }
+  .hb-marks { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+  .hb-mark { font-size:12px; font-weight:600; padding:2px 8px; border-radius:999px; background:#F2EEF4; color:var(--navy); white-space:nowrap; }
+  .hb-mark.yes { background:#DDF3E2; color:#1E6B34; }
+  .hb-mark.no { background:#F1E4E6; color:#8A2E3B; text-decoration:line-through; }
+  .hb-mark.gold { background:#FFE9A8; }
+  .hb-pts { font-family:var(--font-display); font-size:26px; color:var(--pumpkin-dark); text-align:right; }
+  .hb-pts small { display:block; font-family:var(--font-body); font-size:11px; color:var(--ink-soft); }
+
+  input[type="number"], input[type="datetime-local"] {
+  font-family: var(--font-body);
+  font-size: 15px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: var(--ink);
+}
+
+  .hb-admin { border:2px dashed var(--navy); }
+  .hb-admin label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; color:var(--navy); }
+  .hb-admin select, .hb-admin input { width:100%; }
+  .hb-admin .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .hb-admin h3 { font-family:var(--font-fun); color:var(--navy); margin:18px 0 4px; }
+
+  @media (max-width:520px) {
+    .hb-hero h2 { font-size:26px; }
+    .hb-q-hint { margin-left:0; }
+    .hb-admin .row2 { grid-template-columns:1fr; }
+  }
+</style>
+
+<main class="wrap">
+  <div class="card hb-hero">
+    <span class="turkey" aria-hidden="true">🦃</span>
+    <h2>Welcome to the Harvest Bowl</h2>
+    <p>A Thanksgiving weekend mini-comp. Everyone starts at zero, so anyone can win.</p>
+    <p class="muted" style="font-size:14px;">6 quick questions, 7 points up for grabs. Some take football smarts, some are pure luck.</p>
+    <span class="hb-countdown" id="countdown" style="display:none;"></span>
+  </div>
+
+  <div id="loadingNote" class="muted" style="text-align:center; padding:24px;">Loading…</div>
+  <div id="notReady" style="display:none;"></div>
+
+  <!-- Sign in -->
+  <div class="card" id="gateCard" style="display:none; border:2px dashed var(--pumpkin);">
+    <h2 class="section-title" style="margin-top:0;">Who's playing?</h2>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <select id="playerSelect" style="flex:1; min-width:180px;"></select>
+      <input type="text" id="pinInput" placeholder="6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+      <button id="enterBtn" style="background:var(--pumpkin);">Let me in</button>
+    </div>
+    <div id="gateBanner" style="margin-top:12px;"></div>
+  </div>
+
+  <div id="playArea" style="display:none;">
+    <div class="card hb-viewer">
+      <span id="viewerBadge"></span>
+      <div class="who" id="viewerName"></div>
+      <button class="switch-link" id="switchBtn">Not you?</button>
+    </div>
+    <div id="questions"></div>
+  </div>
+
+  <div id="boardArea"></div>
+  <div id="adminArea"></div>
+</main>
+
+<p class="footer-note">🦃 Harvest Bowl points are just for fun and don't count in the season standings.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+// HARVEST-PAGE-V2  (search View Source for this to confirm the live version)
+const EVENT_ID = 'harvest2026';
+
+let players = [], playersById = {}, weeks = [];
+let event = null;        // events/harvest2026
+let eventPicks = [];     // all eventPicks for this event
+let viewer = null;
+let draft = { winners: {}, coinToss: null, firstScore: null, totalGuess: null };
+let isAdminUser = false;
+
+// ---------- data ----------
+function eventPickId(playerId) { return `${EVENT_ID}_${playerId}`; }
+
+async function loadEvent() {
+  const doc = await db.collection('events').doc(EVENT_ID).get();
+  event = doc.exists ? doc.data() : null;
+}
+async function loadEventPicks() {
+  const snap = await db.collection('eventPicks').where('eventId', '==', EVENT_ID).get();
+  eventPicks = snap.docs.map(d => d.data());
+}
+function toDate(ts) { return ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : null; }
+function isEventLocked() {
+  if (!event) return false;
+  if (event.locked) return true;
+  const d = toDate(event.lockAt);
+  return !!d && d.getTime() <= Date.now();
+}
+function featuredGames() { return (event && event.games) || []; }
+function drumstickGame() { return featuredGames().find(g => g.id === event.drumstickId) || null; }
+function teamFor(game, side) { return side === 'away' ? game.away : side === 'home' ? game.home : ''; }
+
+// ---------- scoring ----------
+/** Returns { points, marks: [{label, state}] , off } — off = distance from the real total (tiebreaker). */
+function scoreEntry(p) {
+  const res = (event && event.results) || {};
+  const winners = res.winners || {};
+  const dg = drumstickGame();
+  let points = 0;
+  const marks = [];
+
+  featuredGames().forEach(g => {
+    const mine = (p.winners || {})[g.id];
+    const isGold = g.id === event.drumstickId;
+    const actual = winners[g.id];
+    const state = !actual ? 'pending' : mine === actual ? 'yes' : 'no';
+    if (state === 'yes') points += isGold ? 2 : 1;
+    marks.push({ label: (isGold ? '🍗 ' : '') + (teamFor(g, mine) || '—'), state, gold: isGold });
+  });
+
+  if (dg) {
+    const actualToss = res.coinToss;
+    const tossState = !actualToss ? 'pending' : p.coinToss === actualToss ? 'yes' : 'no';
+    if (tossState === 'yes') points += 1;
+    marks.push({ label: '🪙 ' + (teamFor(dg, p.coinToss) || '—') + ' toss', state: tossState });
+
+    const actualFirst = res.firstScore;
+    const state = !actualFirst ? 'pending' : p.firstScore === actualFirst ? 'yes' : 'no';
+    if (state === 'yes') points += 1;
+    marks.push({ label: '🥧 ' + (teamFor(dg, p.firstScore) || '—') + ' first', state });
+  }
+
+  let off = null;
+  if (typeof res.totalPoints === 'number' && typeof p.totalGuess === 'number') {
+    off = Math.abs(p.totalGuess - res.totalPoints);
+  }
+  marks.push({ label: '🦃 ' + (typeof p.totalGuess === 'number' ? p.totalGuess + ' pts' : '—'), state: 'guess' });
+  return { points, marks, off };
+}
+
+/** Leaderboard with the closest-guess bonus applied and ties broken by the closest guess. */
+function buildBoard() {
+  const res = (event && event.results) || {};
+  const rows = eventPicks.map(p => ({ pick: p, ...scoreEntry(p) }));
+  if (typeof res.totalPoints === 'number' && rows.some(r => r.off !== null)) {
+    const best = Math.min(...rows.filter(r => r.off !== null).map(r => r.off));
+    rows.forEach(r => {
+      const gm = r.marks.find(m => m.state === 'guess');
+      if (r.off === best) { r.points += 1; gm.state = 'yes'; gm.label += ' (closest!)'; }
+      else if (r.off !== null) { gm.state = 'no-soft'; gm.label += ` (off by ${r.off})`; }
+    });
+  }
+  rows.sort((a, b) => b.points - a.points
+    || (a.off ?? 9999) - (b.off ?? 9999)
+    || a.pick.playerName.localeCompare(b.pick.playerName));
+  let rank = 0;
+  rows.forEach((r, i) => {
+    const prev = rows[i - 1];
+    if (!prev || prev.points !== r.points || (prev.off ?? 9999) !== (r.off ?? 9999)) rank = i + 1;
+    r.rank = rank;
+  });
+  return rows;
+}
+
+// ---------- page ----------
+async function init() {
+  document.querySelector('.banner-logo').alt = LEAGUE_NAME;
+  await ensureSignedIn();
+  const user = auth.currentUser;
+  isAdminUser = !!(user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email));
+
+  [players, weeks] = await Promise.all([getPlayers(), getWeeks()]);
+  players.forEach(p => { playersById[p.id] = p; });
+  await Promise.all([loadEvent(), loadEventPicks()]);
+  document.getElementById('loadingNote').style.display = 'none';
+
+  renderAll();
+  if (isAdminUser) renderAdmin();
+  setInterval(renderCountdown, 30000);
+}
+
+function renderAll() {
+  renderCountdown();
+  const notReady = document.getElementById('notReady');
+  const ready = event && featuredGames().length === 3 && event.drumstickId;
+  if (!ready) {
+    notReady.style.display = 'block';
+    notReady.innerHTML = `<div class="card" style="text-align:center;">
+      <p style="font-size:40px; margin:0;">🥧</p>
+      <p><strong>The Harvest Bowl games aren't set up yet.</strong><br>Check back soon!</p></div>`;
+    document.getElementById('gateCard').style.display = 'none';
+    document.getElementById('playArea').style.display = 'none';
+    document.getElementById('boardArea').innerHTML = '';
+    return;
+  }
+  notReady.style.display = 'none';
+
+  const locked = isEventLocked();
+  if (locked) {
+    document.getElementById('gateCard').style.display = 'none';
+    document.getElementById('playArea').style.display = 'none';
+  } else if (viewer) {
+    renderQuestions();
+  } else {
+    setupGate();
+  }
+  renderBoard();
+}
+
+function renderCountdown() {
+  const el = document.getElementById('countdown');
+  const d = event && toDate(event.lockAt);
+  if (!event || (!d && !event.locked)) { el.style.display = 'none'; return; }
+  el.style.display = 'inline-block';
+  if (isEventLocked()) {
+    el.classList.add('closed');
+    el.textContent = '🔒 Picks are closed. Good luck!';
+    return;
+  }
+  el.classList.remove('closed');
+  const ms = d.getTime() - Date.now();
+  const days = Math.floor(ms / 86400000), hrs = Math.floor(ms / 3600000) % 24, mins = Math.floor(ms / 60000) % 60;
+  const left = days > 0 ? `${days}d ${hrs}h` : hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  const when = d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' });
+  el.textContent = `⏰ Picks close ${when} (${left} left)`;
+}
+
+// ---------- sign in ----------
+function setupGate() {
+  document.getElementById('gateCard').style.display = 'block';
+  document.getElementById('playArea').style.display = 'none';
+  const sel = document.getElementById('playerSelect');
+  sel.innerHTML = '<option value="">Choose your team name…</option>' +
+    players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  document.getElementById('enterBtn').onclick = onEnter;
+  document.getElementById('pinInput').onkeydown = e => { if (e.key === 'Enter') onEnter(); };
+  document.getElementById('switchBtn').onclick = () => {
+    if (viewer) UnlockedPlayers.lock(viewer.id);
+    viewer = null;
+    sel.value = '';
+    setupGate();
+  };
+  const savedId = LocalPlayer.get();
+  const saved = savedId && playersById[savedId];
+  if (saved) sel.value = saved.id;
+  if (saved && saved.pinHash && UnlockedPlayers.isUnlocked(saved.id) && !viewer) enterAs(saved);
+}
+
+async function onEnter() {
+  const banner = document.getElementById('gateBanner');
+  const id = document.getElementById('playerSelect').value;
+  const pin = document.getElementById('pinInput').value.trim();
+  banner.innerHTML = '';
+  if (!id) { banner.innerHTML = `<div class="banner error">Pick your team name first.</div>`; return; }
+  const player = playersById[id];
+  if (!player.pinHash) { banner.innerHTML = `<div class="banner error">Set up your PIN on the <a href="index.html">Make Picks</a> page first.</div>`; return; }
+  if (!(await verifyPlayerPin(player, pin))) { banner.innerHTML = `<div class="banner error">That PIN doesn't match. Try again.</div>`; return; }
+  LocalPlayer.set(player.id);
+  UnlockedPlayers.unlock(player.id);
+  document.getElementById('pinInput').value = '';
+  enterAs(player);
+}
+
+function enterAs(player) {
+  viewer = player;
+  const existing = eventPicks.find(p => p.playerId === player.id);
+  draft = existing
+    ? { winners: { ...(existing.winners || {}) }, coinToss: existing.coinToss || null, firstScore: existing.firstScore || null,
+        totalGuess: typeof existing.totalGuess === 'number' ? existing.totalGuess : null }
+    : { winners: {}, coinToss: null, firstScore: null, totalGuess: null };
+  document.getElementById('gateCard').style.display = 'none';
+  document.getElementById('playArea').style.display = 'block';
+  document.getElementById('viewerBadge').innerHTML = playerBadgeImgTag(player, 40);
+  document.getElementById('viewerName').textContent = player.name;
+  renderQuestions();
+}
+
+// ---------- the 5 questions ----------
+/** kind is 'win' (pick the winner) or 'first' (who scores first) */
+function teamButtons(game, chosen, kind) {
+  return `<div class="hb-teams" data-group="${kind}:${escapeHtml(game.id)}">
+    ${['away', 'home'].map(side => `
+      <button class="hb-team ${chosen === side ? 'on' : ''}" data-kind="${kind}" data-game="${escapeHtml(game.id)}" data-side="${side}" aria-pressed="${chosen === side}">
+        ${teamLogoImgTag(teamFor(game, side), 44)}
+        <span>${escapeHtml(teamFor(game, side))}</span>
+        <span class="where">${side === 'away' ? 'away' : 'home'}</span>
+      </button>`).join('')}
+  </div>`;
+}
+
+function answeredCount() {
+  let n = featuredGames().filter(g => draft.winners[g.id]).length;
+  if (draft.coinToss) n++;
+  if (draft.firstScore) n++;
+  if (typeof draft.totalGuess === 'number') n++;
+  return n;
+}
+
+function renderQuestions() {
+  const games = featuredGames();
+  const dg = drumstickGame();
+  const regular = games.filter(g => g.id !== event.drumstickId);
+  const existing = eventPicks.find(p => p.playerId === viewer.id);
+  let n = 0;
+  const qs = [];
+
+  regular.forEach(g => {
+    n++;
+    qs.push(`<div class="card hb-q">
+      <div class="hb-q-head"><span class="hb-q-num">${n}</span><span class="hb-q-title">Who wins?</span><span class="hb-q-pts">1 pt</span></div>
+      ${teamButtons(g, draft.winners[g.id], 'win')}
+    </div>`);
+  });
+
+  n++;
+  qs.push(`<div class="card hb-q hb-drumstick">
+    <div class="hb-q-head"><span class="hb-q-num">${n}</span><span class="hb-q-title">The Golden Drumstick</span><span class="hb-q-pts">2 pts, counts double</span></div>
+    <p class="hb-q-hint">The big Thanksgiving Monday game. Get this one right for double points!</p>
+    ${teamButtons(dg, draft.winners[dg.id], 'win')}
+  </div>`);
+
+  n++;
+  qs.push(`<div class="card hb-q">
+    <div class="hb-q-head"><span class="hb-q-num">${n}</span><span class="hb-q-title">Who wins the coin toss in the Golden Drumstick game?</span><span class="hb-q-pts">1 pt</span></div>
+    <p class="hb-q-hint">Right before kickoff, the referee flips a coin. Which team wins it? Total luck!</p>
+    ${teamButtons(dg, draft.coinToss, 'toss')}
+  </div>`);
+
+  n++;
+  qs.push(`<div class="card hb-q">
+    <div class="hb-q-head"><span class="hb-q-num">${n}</span><span class="hb-q-title">Who scores first in the Golden Drumstick game?</span><span class="hb-q-pts">1 pt</span></div>
+    <p class="hb-q-hint">Any score counts: touchdown, field goal or safety. This one is pure luck!</p>
+    ${teamButtons(dg, draft.firstScore, 'first')}
+  </div>`);
+
+  n++;
+  qs.push(`<div class="card hb-q">
+    <div class="hb-q-head"><span class="hb-q-num">${n}</span><span class="hb-q-title">Gobbler Guess: how many total points in the Golden Drumstick game?</span><span class="hb-q-pts">+1 if closest</span></div>
+    <p class="hb-q-hint">Add both teams' scores together. Most NFL games end up somewhere between 30 and 60. Closest guess also breaks any ties!</p>
+    <div class="hb-guess">
+      <button data-guess="-1" aria-label="One less">−</button>
+      <input type="number" id="guessInput" min="0" max="150" inputmode="numeric" value="${typeof draft.totalGuess === 'number' ? draft.totalGuess : ''}" placeholder="?" aria-label="Total points guess">
+      <button data-guess="1" aria-label="One more">+</button>
+    </div>
+  </div>`);
+
+  qs.push(`<div class="card">
+    <div class="hb-save-row">
+      <button id="saveBtn">${existing ? 'Update my Harvest picks 🦃' : 'Save my Harvest picks 🦃'}</button>
+      <span class="hb-progress" id="progress">${answeredCount()} of 6 answered</span>
+    </div>
+    <div id="saveBanner" style="margin-top:10px;">${existing ? `<div class="banner info">✅ Your picks are in. You can change them until picks close.</div>` : ''}</div>
+  </div>`);
+
+  const wrap = document.getElementById('questions');
+  wrap.innerHTML = qs.join('');
+
+  wrap.querySelectorAll('.hb-team').forEach(b => b.addEventListener('click', () => {
+    const { kind, game, side } = b.dataset;
+    if (kind === 'win') draft.winners[game] = side;
+    else if (kind === 'toss') draft.coinToss = side;
+    else draft.firstScore = side;
+    b.parentElement.querySelectorAll('.hb-team').forEach(x => {
+      const on = x === b;
+      x.classList.toggle('on', on);
+      x.setAttribute('aria-pressed', on);
+    });
+    updateProgress();
+  }));
+  const input = document.getElementById('guessInput');
+  input.addEventListener('input', () => {
+    const v = parseInt(input.value, 10);
+    draft.totalGuess = Number.isFinite(v) ? Math.max(0, Math.min(150, v)) : null;
+    updateProgress();
+  });
+  wrap.querySelectorAll('[data-guess]').forEach(b => b.addEventListener('click', () => {
+    const base = typeof draft.totalGuess === 'number' ? draft.totalGuess : 42;
+    draft.totalGuess = Math.max(0, Math.min(150, base + (typeof draft.totalGuess === 'number' ? parseInt(b.dataset.guess, 10) : 0)));
+    input.value = draft.totalGuess;
+    updateProgress();
+  }));
+  document.getElementById('saveBtn').addEventListener('click', saveDraft);
+}
+
+function updateProgress() {
+  const el = document.getElementById('progress');
+  if (el) el.textContent = `${answeredCount()} of 6 answered`;
+}
+
+async function saveDraft() {
+  const banner = document.getElementById('saveBanner');
+  if (isEventLocked()) { banner.innerHTML = `<div class="banner error">Sorry, picks are closed now.</div>`; return; }
+  if (answeredCount() < 6) { banner.innerHTML = `<div class="banner error">Answer all 6 questions first (${answeredCount()} of 6 done).</div>`; return; }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  try {
+    const data = {
+      eventId: EVENT_ID, playerId: viewer.id, playerName: viewer.name, pinHash: viewer.pinHash,
+      winners: draft.winners, coinToss: draft.coinToss, firstScore: draft.firstScore, totalGuess: draft.totalGuess,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    await db.collection('eventPicks').doc(eventPickId(viewer.id)).set(data);
+    await loadEventPicks();
+    renderQuestions();
+    renderBoard();
+    document.getElementById('saveBanner').innerHTML = `<div class="banner success">🦃 Gobble gobble! Your Harvest picks are saved. You can change them until picks close.</div>`;
+  } catch (e) {
+    console.error(e);
+    banner.innerHTML = `<div class="banner error">Couldn't save. Picks may have closed, or try refreshing.</div>`;
+    btn.disabled = false;
+  }
+}
+
+// ---------- leaderboard / who's in ----------
+function renderBoard() {
+  const area = document.getElementById('boardArea');
+  if (!event || featuredGames().length !== 3) { area.innerHTML = ''; return; }
+  const locked = isEventLocked();
+
+  if (!locked) {
+    const names = eventPicks.map(p => escapeHtml(p.playerName)).sort();
+    area.innerHTML = `<div class="card">
+      <h2 class="section-title" style="margin-top:0;">🍽️ At the table so far</h2>
+      <p style="margin:0;">${eventPicks.length
+        ? `<strong>${eventPicks.length} of ${players.length}</strong> players are in: ${names.join(', ')}`
+        : 'Nobody yet. Be the first!'}</p>
+      <p class="muted" style="margin-bottom:0;">Everyone's answers get revealed once picks close.</p>
+    </div>`;
+    return;
+  }
+
+  const res = event.results || {};
+  const anyResults = Object.keys(res.winners || {}).length || res.coinToss || res.firstScore || typeof res.totalPoints === 'number';
+  const rows = buildBoard();
+  const dg = drumstickGame();
+  area.innerHTML = `
+    <h2 class="section-title">🏆 The Harvest Table</h2>
+    ${typeof res.totalPoints === 'number' && dg
+      ? `<p class="muted" style="margin-top:-6px;">Golden Drumstick final total: <strong>${res.totalPoints}</strong> points</p>`
+      : anyResults ? '' : `<p class="muted" style="margin-top:-6px;">Picks are locked! Points show up as the games finish.</p>`}
+    ${rows.length === 0 ? `<div class="card"><p>Nobody entered this year.</p></div>` :
+      rows.map(r => {
+        const player = playersById[r.pick.playerId];
+        const isMe = viewer && r.pick.playerId === viewer.id;
+        return `<div class="hb-board-row ${isMe ? 'me' : ''}">
+          <div class="hb-rank">${anyResults && r.rank === 1 ? '🦃' : (anyResults ? r.rank : '')}</div>
+          ${playerBadgeImgTag(player, 36)}
+          <div class="hb-board-name">
+            <strong>${escapeHtml(r.pick.playerName)}</strong>
+            ${player && player.kidName ? `<span class="muted" style="font-size:12px;"> ${escapeHtml(player.kidName)}</span>` : ''}
+            <div class="hb-marks">${r.marks.map(m =>
+              `<span class="hb-mark ${m.state === 'yes' ? 'yes' : m.state === 'no' ? 'no' : ''} ${m.gold ? 'gold' : ''}">${escapeHtml(m.label)}</span>`).join('')}</div>
+          </div>
+          ${anyResults ? `<div class="hb-pts">${r.points}<small>of 7</small></div>` : ''}
+        </div>`;
+      }).join('')}`;
+}
+
+// ---------- admin ----------
+function gameLabel(g) { return `${g.away} @ ${g.home}`; }
+function toLocalInput(d) {
+  if (!d) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function renderAdmin() {
+  const area = document.getElementById('adminArea');
+  const ev = event || {};
+  const weekId = ev.weekId || (weeks.find(w => !isWeekLocked(w)) || weeks[weeks.length - 1] || {}).id || '';
+  const week = weeks.find(w => w.id === weekId);
+  const wkGames = (week && week.games) || [];
+  const chosen = ev.games || [];
+  const regular = chosen.filter(g => g.id !== ev.drumstickId);
+  const opts = (sel) => `<option value="">Choose a game…</option>` +
+    wkGames.map(g => `<option value="${g.id}" ${sel === g.id ? 'selected' : ''}>${escapeHtml(gameLabel(g))}</option>`).join('');
+  const res = ev.results || {};
+  const winSel = (g) => `<select data-res-win="${g.id}">
+      <option value="">Not decided</option>
+      <option value="away" ${res.winners && res.winners[g.id] === 'away' ? 'selected' : ''}>${escapeHtml(g.away)}</option>
+      <option value="home" ${res.winners && res.winners[g.id] === 'home' ? 'selected' : ''}>${escapeHtml(g.home)}</option>
+    </select>`;
+  const dg = drumstickGame();
+
+  area.innerHTML = `<div class="card hb-admin">
+    <h2 class="section-title" style="margin-top:0;">🔧 Admin: Harvest Bowl setup</h2>
+    <p class="muted" style="margin-top:0;">Only you can see this, because you're signed in as admin.</p>
+
+    <label for="admWeek">Pull games from</label>
+    <select id="admWeek">${weeks.map(w => `<option value="${w.id}" ${w.id === weekId ? 'selected' : ''}>${escapeHtml(w.label || 'Week ' + w.weekNumber)}</option>`).join('')}</select>
+    ${wkGames.length ? '' : `<p class="banner error" style="margin-top:8px;">That week has no games yet. Add them on the Admin page first.</p>`}
+
+    <div class="row2">
+      <div><label for="admG1">Question 1 game</label><select id="admG1">${opts(regular[0] && regular[0].id)}</select></div>
+      <div><label for="admG2">Question 2 game</label><select id="admG2">${opts(regular[1] && regular[1].id)}</select></div>
+    </div>
+    <label for="admGold">🍗 Golden Drumstick game (double points; the coin toss, first-score and Gobbler Guess questions use this game too)</label>
+    <select id="admGold">${opts(ev.drumstickId)}</select>
+
+    <label for="admLock">Picks close at (usually the first featured game's kickoff)</label>
+    <input type="datetime-local" id="admLock" value="${toLocalInput(toDate(ev.lockAt))}">
+
+    <div style="margin-top:14px; display:flex; gap:10px; flex-wrap:wrap;">
+      <button id="admSaveSetup">Save setup</button>
+      <button id="admToggleLock" style="background:var(--cranberry);">${ev.locked ? 'Reopen picks' : 'Close picks now'}</button>
+    </div>
+    <div id="admSetupBanner" style="margin-top:10px;"></div>
+
+    ${chosen.length === 3 ? `
+      <h3>Results</h3>
+      ${chosen.map(g => `<label>${g.id === ev.drumstickId ? '🍗 ' : ''}${escapeHtml(gameLabel(g))} winner</label>${winSel(g)}`).join('')}
+      <div class="row2">
+        <div><label for="admToss">🪙 Coin toss winner (Drumstick game)</label>
+          <select id="admToss"><option value="">Not decided</option>
+            ${dg ? `<option value="away" ${res.coinToss === 'away' ? 'selected' : ''}>${escapeHtml(dg.away)}</option>
+                    <option value="home" ${res.coinToss === 'home' ? 'selected' : ''}>${escapeHtml(dg.home)}</option>` : ''}
+          </select></div>
+        <div><label for="admFirst">🥧 First to score (Drumstick game)</label>
+          <select id="admFirst"><option value="">Not decided</option>
+            ${dg ? `<option value="away" ${res.firstScore === 'away' ? 'selected' : ''}>${escapeHtml(dg.away)}</option>
+                    <option value="home" ${res.firstScore === 'home' ? 'selected' : ''}>${escapeHtml(dg.home)}</option>` : ''}
+          </select></div>
+        <div><label for="admTotal">🦃 Final total points (Drumstick game)</label>
+          <input type="number" id="admTotal" min="0" max="150" value="${typeof res.totalPoints === 'number' ? res.totalPoints : ''}" placeholder="Leave blank until final"></div>
+      </div>
+      <div style="margin-top:14px;"><button id="admSaveResults">Save results</button></div>
+      <div id="admResBanner" style="margin-top:10px;"></div>` : ''}
+  </div>`;
+
+  document.getElementById('admWeek').onchange = (e) => {
+    event = { ...(event || {}), weekId: e.target.value, games: [], drumstickId: '' };
+    renderAdmin();
+  };
+
+  // Default the close time to the earliest kickoff among the chosen games (if kickoffs are set in Admin).
+  ['admG1', 'admG2', 'admGold'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+    const lockInput = document.getElementById('admLock');
+    if (lockInput.value) return;
+    const ids = ['admG1', 'admG2', 'admGold'].map(x => document.getElementById(x).value).filter(Boolean);
+    const kicks = wkGames.filter(g => ids.includes(g.id) && g.kickoffAt).map(g => toDate(g.kickoffAt));
+    if (kicks.length) lockInput.value = toLocalInput(new Date(Math.min(...kicks.map(d => d.getTime()))));
+  }));
+
+  document.getElementById('admSaveSetup').onclick = async () => {
+    const b = document.getElementById('admSetupBanner');
+    const ids = ['admG1', 'admG2', 'admGold'].map(x => document.getElementById(x).value);
+    if (ids.some(x => !x)) { b.innerHTML = `<div class="banner error">Choose all 3 games.</div>`; return; }
+    if (new Set(ids).size !== 3) { b.innerHTML = `<div class="banner error">Pick 3 different games.</div>`; return; }
+    const lockVal = document.getElementById('admLock').value;
+    const games = ids.map(id => {
+      const g = wkGames.find(x => x.id === id);
+      return { id: g.id, away: g.away, home: g.home };
+    });
+    const sameGames = event && event.games && event.games.length === 3 &&
+      ids.every(id => event.games.some(g => g.id === id));
+    const data = {
+      name: 'Harvest Bowl', weekId: document.getElementById('admWeek').value,
+      games, drumstickId: ids[2],
+      lockAt: lockVal ? firebase.firestore.Timestamp.fromDate(new Date(lockVal)) : null,
+      locked: !!(event && event.locked),
+      results: sameGames && event.results ? event.results : {}
+    };
+    try {
+      await db.collection('events').doc(EVENT_ID).set(data);
+      await loadEvent();
+      renderAll(); renderAdmin();
+      document.getElementById('admSetupBanner').innerHTML = `<div class="banner success">Setup saved.</div>`;
+    } catch (e) { console.error(e); b.innerHTML = `<div class="banner error">Save failed. Did you publish the new Firestore rules?</div>`; }
+  };
+
+  document.getElementById('admToggleLock').onclick = async () => {
+    if (!event) return;
+    await db.collection('events').doc(EVENT_ID).update({ locked: !event.locked });
+    await loadEvent();
+    renderAll(); renderAdmin();
+  };
+
+  const saveRes = document.getElementById('admSaveResults');
+  if (saveRes) saveRes.onclick = async () => {
+    const winners = {};
+    document.querySelectorAll('[data-res-win]').forEach(s => { if (s.value) winners[s.dataset.resWin] = s.value; });
+    const totalRaw = document.getElementById('admTotal').value;
+    const results = { winners, coinToss: document.getElementById('admToss').value || null, firstScore: document.getElementById('admFirst').value || null,
+      totalPoints: totalRaw === '' ? null : parseInt(totalRaw, 10) };
+    try {
+      await db.collection('events').doc(EVENT_ID).update({ results });
+      await loadEvent();
+      renderAll(); renderAdmin();
+      document.getElementById('admResBanner').innerHTML = `<div class="banner success">Results saved. The Harvest Table is updated.</div>`;
+    } catch (e) { console.error(e); document.getElementById('admResBanner').innerHTML = `<div class="banner error">Save failed.</div>`; }
+  };
+}
+
+init().catch(err => {
+  console.error(err);
+  document.getElementById('loadingNote').innerHTML = `<div class="banner error">Something went wrong loading the page. Try refreshing.</div>`;
+});
+</script>
+</body>
+</html>
