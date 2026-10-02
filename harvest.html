@@ -69,7 +69,7 @@
 </script>
 
 <header class="scoreboard">
-  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;width:100%;max-width:none;height:auto;margin:0;">
+  <img class="banner-logo" src="harvest-banner.jpg" alt="Any Given Sundae Thanksgiving Mini Comp: a turkey running with a football, surrounded by NFL team mascots" style="display:block;width:100%;max-width:none;height:auto;max-height:min(62vh, 620px);object-fit:cover;object-position:50% 0%;margin:0;">
   <div class="scoreboard-inner">
     <p class="league-name" id="leagueTag">THANKSGIVING WEEKEND MINI-COMP</p>
     <h1 class="week-display"><span class="digits">HARVEST BOWL</span></h1>
@@ -92,6 +92,8 @@
   .hb-hero .turkey { font-size:52px; line-height:1; display:block; }
   .hb-hero h2 { font-family:var(--font-display); font-weight:400; font-size:30px; letter-spacing:0.5px; color:var(--navy); margin:8px 0 4px; }
   .hb-hero p { margin:4px auto; max-width:46ch; color:var(--ink); }
+  .hb-hero .hb-prize { display:inline-block; margin:10px auto 6px !important; background:var(--navy); color:var(--gold); font-family:var(--font-fun); font-weight:700; font-size:16px; padding:8px 16px; border-radius:12px; }
+  .hb-champ { display:inline-block; font-size:11px; font-weight:700; color:var(--navy); background:var(--gold); padding:2px 8px; border-radius:999px; margin-left:6px; vertical-align:middle; }
   .hb-countdown { display:inline-block; margin-top:10px; background:var(--navy); color:white; font-family:var(--font-fun); font-weight:600; padding:6px 14px; border-radius:999px; font-size:14px; }
   .hb-countdown.closed { background:var(--cranberry); }
 
@@ -171,10 +173,10 @@
 
 <main class="wrap">
   <div class="card hb-hero">
-    <span class="turkey" aria-hidden="true">🦃</span>
     <h2>Welcome to the Harvest Bowl</h2>
-    <p>A Thanksgiving weekend mini-comp. Everyone starts at zero, so anyone can win.</p>
-    <p class="muted" style="font-size:14px;">6 quick questions, 7 points up for grabs. Some take football smarts, some are pure luck.</p>
+    <p>A Thanksgiving weekend mini-comp, all on its own. It doesn't count toward the season standings, and everyone starts at zero, so anyone can win.</p>
+    <p class="hb-prize">🏆 The Harvest Bowl champion wins their own special prize!</p>
+    <p class="muted" style="font-size:14px;">6 quick questions, 7 points up for grabs. Some take football smarts, some are pure luck. If there's a tie, the closest Gobbler Guess (total points in the Golden Drumstick game) wins.</p>
     <span class="hb-countdown" id="countdown" style="display:none;"></span>
   </div>
 
@@ -205,7 +207,7 @@
   <div id="adminArea"></div>
 </main>
 
-<p class="footer-note">🦃 Harvest Bowl points are just for fun and don't count in the season standings.</p>
+<p class="footer-note">🦃 The Harvest Bowl is its own competition with its own prize. It doesn't count in the season standings.</p>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
@@ -213,7 +215,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// HARVEST-PAGE-V2  (search View Source for this to confirm the live version)
+// HARVEST-PAGE-V4  (search View Source for this to confirm the live version)
 const EVENT_ID = 'harvest2026';
 
 let players = [], playersById = {}, weeks = [];
@@ -309,15 +311,27 @@ function buildBoard() {
 
 // ---------- page ----------
 async function init() {
-  document.querySelector('.banner-logo').alt = LEAGUE_NAME;
   await ensureSignedIn();
   const user = auth.currentUser;
   isAdminUser = !!(user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email));
 
   [players, weeks] = await Promise.all([getPlayers(), getWeeks()]);
   players.forEach(p => { playersById[p.id] = p; });
-  await Promise.all([loadEvent(), loadEventPicks()]);
-  document.getElementById('loadingNote').style.display = 'none';
+  let rulesProblem = false;
+  try {
+    await Promise.all([loadEvent(), loadEventPicks()]);
+  } catch (e) {
+    // Usually means the Firestore rules for events/eventPicks haven't been published yet.
+    console.error(e);
+    rulesProblem = true;
+    event = null; eventPicks = [];
+  }
+  const note = document.getElementById('loadingNote');
+  if (rulesProblem && isAdminUser) {
+    note.innerHTML = `<div class="banner error"><strong>Admin:</strong> the Harvest Bowl can't read its data yet. Publish the new Firestore rules (events and eventPicks) in the Firebase console, then refresh this page.</div>`;
+  } else {
+    note.style.display = 'none';
+  }
 
   renderAll();
   if (isAdminUser) renderAdmin();
@@ -578,6 +592,7 @@ function renderBoard() {
   const anyResults = Object.keys(res.winners || {}).length || res.coinToss || res.firstScore || typeof res.totalPoints === 'number';
   const rows = buildBoard();
   const dg = drumstickGame();
+  const allFinal = featuredGames().every(g => (res.winners || {})[g.id]) && res.coinToss && res.firstScore && typeof res.totalPoints === 'number';
   area.innerHTML = `
     <h2 class="section-title">🏆 The Harvest Table</h2>
     ${typeof res.totalPoints === 'number' && dg
@@ -591,7 +606,7 @@ function renderBoard() {
           <div class="hb-rank">${anyResults && r.rank === 1 ? '🦃' : (anyResults ? r.rank : '')}</div>
           ${playerBadgeImgTag(player, 36)}
           <div class="hb-board-name">
-            <strong>${escapeHtml(r.pick.playerName)}</strong>
+            <strong>${escapeHtml(r.pick.playerName)}</strong>${allFinal && r.rank === 1 ? '<span class="hb-champ">🏆 Harvest Bowl Champion</span>' : ''}
             ${player && player.kidName ? `<span class="muted" style="font-size:12px;"> ${escapeHtml(player.kidName)}</span>` : ''}
             <div class="hb-marks">${r.marks.map(m =>
               `<span class="hb-mark ${m.state === 'yes' ? 'yes' : m.state === 'no' ? 'no' : ''} ${m.gold ? 'gold' : ''}">${escapeHtml(m.label)}</span>`).join('')}</div>
