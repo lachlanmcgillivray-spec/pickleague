@@ -107,18 +107,19 @@
     <div class="card">
       <h2 class="section-title">Bulk import a schedule</h2>
       <p class="muted">Paste one or more weeks at once instead of adding matchups by hand. Format:</p>
-      <pre style="background:var(--turf-light); padding:12px 14px; border-radius:8px; font-family:var(--font-mono); font-size:12px; white-space:pre-wrap; margin: 0 0 12px;">Week 1
-Patriots @ Seahawks
-49ers @ Rams
-Bears @ Panthers
+      <pre style="background:var(--turf-light); padding:12px 14px; border-radius:8px; font-family:var(--font-mono); font-size:12px; white-space:pre-wrap; margin: 0 0 12px;">Week 5
+Buccaneers @ Cowboys | Thu Oct 8 8:15 PM
+Packers @ Falcons | Sun Oct 11 8:20 PM
+Bills @ Rams | Mon Oct 12 8:15 PM
 
-Week 2
-Chargers @ Chiefs
+Week 6
+Seahawks @ Broncos | Oct 15 8:15 PM
 ...</pre>
-      <p class="muted">Each "Away @ Home" line becomes a matchup. Get real matchups from <a href="https://www.nfl.com/schedules/" target="_blank" rel="noopener">nfl.com/schedules</a> — copy the away/home teams for each game into this format. Importing a week number that already exists adds any new matchups to it without deleting what's there.</p>
-      <textarea id="bulkImportText" rows="10" style="width:100%; font-family:var(--font-mono); font-size:13px; padding:10px; border:2px solid var(--line); border-radius:10px;" placeholder="Week 1
-Patriots @ Seahawks
-49ers @ Rams"></textarea>
+      <p class="muted">Each "Away @ Home" line becomes a matchup. Adding <strong>| date and time</strong> after it is optional and sets that game's kickoff (which auto-locks it). Use your own time zone and include AM or PM, like <em>Oct 11 1:00 PM</em>, <em>10/11 1:00 PM</em> or <em>2026-10-11 13:00</em>. Get matchups and times from <a href="https://www.nfl.com/schedules/" target="_blank" rel="noopener">nfl.com/schedules</a>.</p>
+      <p class="muted">Importing a week that already exists adds any new matchups without deleting anything. If a game is already there, its kickoff time gets filled in or updated, so you can paste times in later.</p>
+      <textarea id="bulkImportText" rows="10" style="width:100%; font-family:var(--font-mono); font-size:13px; padding:10px; border:2px solid var(--line); border-radius:10px;" placeholder="Week 5
+Buccaneers @ Cowboys | Thu Oct 8 8:15 PM
+Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
       <div style="margin-top:12px;">
         <button id="bulkImportBtn" class="amber" type="button">Import schedule</button>
       </div>
@@ -216,10 +217,11 @@ async function init() {
 }
 
 /** Parses text like:
- *  Week 1
- *  Patriots @ Seahawks
+ *  Week 5
+ *  Buccaneers @ Cowboys | Thu Oct 8 8:15 PM
  *  49ers @ Rams
- * into [{ weekNumber: 1, games: [{ away, home }, ...] }, ...]
+ * into [{ weekNumber: 5, games: [{ away, home, kickoff: Date|null, kickoffText }, ...] }, ...]
+ * BULK-KICKOFF-V1
  */
 function parseScheduleText(text) {
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
@@ -232,12 +234,72 @@ function parseScheduleText(text) {
       weeks.push(current);
       continue;
     }
-    const gameMatch = line.match(/^(.+?)\s*@\s*(.+)$/);
+    const gameMatch = line.match(/^(.+?)\s*@\s*([^|,]+?)\s*(?:[|,]\s*(.+))?$/);
     if (gameMatch && current) {
-      current.games.push({ away: gameMatch[1].trim(), home: gameMatch[2].trim() });
+      const kickoffText = (gameMatch[3] || '').trim();
+      current.games.push({
+        away: gameMatch[1].trim(),
+        home: gameMatch[2].trim(),
+        kickoffText,
+        kickoff: kickoffText ? parseKickoff(kickoffText) : null
+      });
     }
   }
   return weeks;
+}
+
+/** Turns "Thu Oct 8 8:15 PM", "10/8 8:15pm", "October 8, 2026 8:15 PM" or "2026-10-08 20:15"
+ * into a Date in this computer's time zone. Returns null if it can't be read. */
+function parseKickoff(raw) {
+  const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+  let t = raw.toLowerCase()
+    .replace(/\b(mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)(day)?\.?,?/g, ' ')
+    .replace(/\b(et|est|edt)\b/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+
+  let year = null, month = null, day = null;
+  let m;
+  if ((m = t.match(/(\d{4})-(\d{1,2})-(\d{1,2})/))) {
+    year = +m[1]; month = +m[2] - 1; day = +m[3]; t = t.replace(m[0], ' ');
+  } else if ((m = t.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/))) {
+    month = +m[1] - 1; day = +m[2];
+    if (m[3]) year = m[3].length === 2 ? 2000 + +m[3] : +m[3];
+    t = t.replace(m[0], ' ');
+  } else if ((m = t.match(/\b([a-z]{3})[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?(?:\s+(\d{4}))?/))) {
+    const idx = MONTHS.indexOf(m[1]);
+    if (idx === -1) return null;
+    month = idx; day = +m[2];
+    if (m[3]) year = +m[3];
+    t = t.replace(m[0], ' ');
+  } else {
+    return null;
+  }
+
+  const tm = t.match(/(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/);
+  if (!tm) return null;
+  let hour = +tm[1];
+  const minute = tm[2] ? +tm[2] : 0;
+  const ampm = tm[3] ? tm[3][0] : null;
+  if (ampm === 'p' && hour < 12) hour += 12;
+  if (ampm === 'a' && hour === 12) hour = 0;
+  if (!ampm && hour < 12) hour += 12;   // no AM/PM given: NFL games are almost always afternoon/evening
+  if (hour > 23 || minute > 59 || day < 1 || day > 31) return null;
+
+  if (year === null) {
+    // NFL season runs Sept to Feb: January/February dates belong to the following year.
+    const now = new Date();
+    year = now.getFullYear();
+    if (month <= 1 && now.getMonth() >= 7) year += 1;
+    if (month >= 7 && now.getMonth() <= 1) year -= 1;
+  }
+  const d = new Date(year, month, day, hour, minute);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/** "Dallas Cowboys" and "Cowboys" both become "cowboys", so the same game matches either way. */
+function teamMatchKey(name) {
+  const words = String(name || '').trim().split(/\s+/);
+  return words[words.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 async function onBulkImport() {
@@ -250,6 +312,16 @@ async function onBulkImport() {
     return;
   }
 
+  // Stop before saving anything if a time couldn't be read, so nothing half-imports.
+  const badTimes = [];
+  parsedWeeks.forEach(pw => pw.games.forEach(g => {
+    if (g.kickoffText && !g.kickoff) badTimes.push(`Week ${pw.weekNumber}: ${g.away} @ ${g.home} | ${g.kickoffText}`);
+  }));
+  if (badTimes.length) {
+    banner.innerHTML = `<div class="banner error">Couldn't read the time on these lines. Try a format like "Oct 11 1:00 PM" and import again:<br>${badTimes.map(escapeHtml).join('<br>')}</div>`;
+    return;
+  }
+
   const btn = document.getElementById('bulkImportBtn');
   btn.disabled = true;
   btn.textContent = 'Importing\u2026';
@@ -258,31 +330,37 @@ async function onBulkImport() {
     const existingWeeks = await getWeeks();
     let weeksTouched = 0;
     let gamesAdded = 0;
+    let timesSet = 0;
 
     for (const parsed of parsedWeeks) {
       const existing = existingWeeks.find(w => w.weekNumber === parsed.weekNumber);
-      const existingGames = existing ? [...existing.games] : [];
+      const games = existing ? existing.games.map(g => ({ ...g })) : [];
 
-      const newGames = parsed.games.filter(pg =>
-        !existingGames.some(eg =>
-          eg.away.toLowerCase() === pg.away.toLowerCase() &&
-          eg.home.toLowerCase() === pg.home.toLowerCase()
-        )
-      ).map(pg => ({ id: newGameId(), away: pg.away, home: pg.home, kickoffAtLocal: '', winner: null }));
+      for (const pg of parsed.games) {
+        const kickoffAt = pg.kickoff ? firebase.firestore.Timestamp.fromDate(pg.kickoff) : null;
+        const match = games.find(eg =>
+          teamMatchKey(eg.away) === teamMatchKey(pg.away) && teamMatchKey(eg.home) === teamMatchKey(pg.home));
+        if (match) {
+          if (kickoffAt) { match.kickoffAt = kickoffAt; timesSet += 1; }
+        } else {
+          games.push({ id: newGameId(), away: pg.away, home: pg.home, winner: null, kickoffAt });
+          gamesAdded += 1;
+          if (kickoffAt) timesSet += 1;
+        }
+      }
 
       const data = {
         weekNumber: parsed.weekNumber,
         label: existing?.label || `Week ${parsed.weekNumber}`,
         locked: existing?.locked || false,
-        games: [...existingGames, ...newGames]
+        games
       };
 
       await saveWeek(existing?.id || null, data);
       weeksTouched += 1;
-      gamesAdded += newGames.length;
     }
 
-    banner.innerHTML = `<div class="banner success">Imported ${gamesAdded} matchup(s) across ${weeksTouched} week(s).</div>`;
+    banner.innerHTML = `<div class="banner success">Done: ${gamesAdded} new matchup(s) and ${timesSet} kickoff time(s) across ${weeksTouched} week(s). Open a week below to double-check the times.</div>`;
     document.getElementById('bulkImportText').value = '';
     await loadWeeks();
   } catch (e) {
