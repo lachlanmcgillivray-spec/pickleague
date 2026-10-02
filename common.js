@@ -90,6 +90,8 @@ async function deletePlayer(playerId) {
   const picksSnap = await db.collection('picks').where('playerId', '==', playerId).get();
   const batch = db.batch();
   picksSnap.docs.forEach(doc => batch.delete(doc.ref));
+       const eventPicksSnap = await db.collection('eventPicks').where('playerId', '==', playerId).get();
+     eventPicksSnap.docs.forEach(doc => batch.delete(doc.ref));
   batch.delete(db.collection('players').doc(playerId));
   await batch.commit();
 }
