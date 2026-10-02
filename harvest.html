@@ -218,7 +218,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// HARVEST-PAGE-V5  (search View Source for this to confirm the live version)
+// HARVEST-PAGE-V6  (search View Source for this to confirm the live version)
 const EVENT_ID = 'harvest2026';
 
 let players = [], playersById = {}, weeks = [];
@@ -237,7 +237,8 @@ async function loadEvent() {
 }
 async function loadEventPicks() {
   const snap = await db.collection('eventPicks').where('eventId', '==', EVENT_ID).get();
-  eventPicks = snap.docs.map(d => d.data());
+  // Skip entries from players who've since been removed from the league.
+  eventPicks = snap.docs.map(d => d.data()).filter(p => playersById[p.playerId]);
 }
 function toDate(ts) { return ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : null; }
 function isEventLocked() {
