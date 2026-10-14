@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Harvest Bowl — Pick League</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
 </head>
 <body>
 
@@ -78,6 +85,7 @@
       <a class="nav-link" href="standings.html">Standings</a>
       <a class="nav-link" href="scoop.html">The Scoop</a>
       <a class="nav-link current" href="harvest.html">Harvest Bowl</a>
+      <a class="nav-link" href="halloffame.html">Hall of Fame</a>
     </nav>
   </div>
 </header>
@@ -93,6 +101,24 @@
   .hb-hero h2 { font-family:var(--font-display); font-weight:400; font-size:30px; letter-spacing:0.5px; color:var(--navy); margin:8px 0 4px; }
   .hb-hero p { margin:4px auto; max-width:46ch; color:var(--ink); }
   .hb-hero .hb-prize { display:inline-block; margin:10px auto 6px !important; background:var(--navy); color:var(--gold); font-family:var(--font-fun); font-weight:700; font-size:16px; padding:8px 16px; border-radius:12px; }
+  .hb-champ-box { position:relative; overflow:hidden; text-align:center; padding:26px 20px 22px; margin:6px 0 22px;
+    border:4px solid var(--gold-dark); border-radius:20px; color:white;
+    background:radial-gradient(circle at 50% 0%, #2B3F7A 0%, var(--navy) 55%, var(--navy-dark) 100%);
+    box-shadow:0 10px 26px rgba(16,31,69,0.28); }
+  .hb-champ-box::before, .hb-champ-box::after { content:'🍁'; position:absolute; font-size:70px; opacity:.18; top:-8px; }
+  .hb-champ-box::before { left:-10px; transform:rotate(-20deg); }
+  .hb-champ-box::after { right:-10px; transform:rotate(20deg); }
+  .hb-champ-kicker { font-family:var(--font-fun); font-weight:700; letter-spacing:2px; font-size:13px; color:var(--gold); text-transform:uppercase; }
+  .hb-champ-title { font-family:var(--font-display); font-weight:400; font-size:34px; letter-spacing:1px; color:var(--pumpkin); margin:2px 0 14px; line-height:1.05; }
+  .hb-champ-winners { display:flex; justify-content:center; flex-wrap:wrap; gap:18px; }
+  .hb-champ-one { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:150px; }
+  .hb-champ-one .trophy { font-size:46px; line-height:1; }
+  .hb-champ-name { font-family:var(--font-fun); font-weight:700; font-size:24px; color:white; }
+  .hb-champ-kid { font-size:14px; color:#C9D2EE; }
+  .hb-champ-stats { font-size:14px; color:var(--gold); font-weight:600; }
+  .hb-champ-prize { display:inline-block; margin-top:14px; background:var(--gold); color:var(--navy-dark); font-family:var(--font-fun); font-weight:700; padding:7px 16px; border-radius:999px; font-size:15px; }
+  .hb-champ-why { font-size:12px; color:#C9D2EE; margin-top:10px; }
+  @media (max-width:520px) { .hb-champ-title { font-size:28px; } .hb-champ-name { font-size:20px; } }
   .hb-champ { display:inline-block; font-size:11px; font-weight:700; color:var(--navy); background:var(--gold); padding:2px 8px; border-radius:999px; margin-left:6px; vertical-align:middle; }
   .hb-countdown { display:inline-block; margin-top:10px; background:var(--navy); color:white; font-family:var(--font-fun); font-weight:600; padding:6px 14px; border-radius:999px; font-size:14px; }
   .hb-countdown.closed { background:var(--cranberry); }
@@ -218,7 +244,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// HARVEST-PAGE-V6  (search View Source for this to confirm the live version)
+// HARVEST-PAGE-V8  (search View Source for this to confirm the live version)
 const EVENT_ID = 'harvest2026';
 
 let players = [], playersById = {}, weeks = [];
@@ -264,8 +290,8 @@ function scoreEntry(p) {
     const mine = (p.winners || {})[g.id];
     const isGold = g.id === event.drumstickId;
     const actual = winners[g.id];
-    const state = !actual ? 'pending' : mine === actual ? 'yes' : 'no';
-    if (state === 'yes') points += isGold ? 2 : 1;
+    const state = !actual ? 'pending' : actual === 'tie' && mine ? 'tie' : mine === actual ? 'yes' : 'no';
+    if (state === 'yes' || state === 'tie') points += isGold ? 2 : 1;
     marks.push({ label: (isGold ? '🍗 ' : '') + (teamFor(g, mine) || '—'), state, gold: isGold });
   });
 
@@ -597,7 +623,7 @@ function renderBoard() {
   const rows = buildBoard();
   const dg = drumstickGame();
   const allFinal = featuredGames().every(g => (res.winners || {})[g.id]) && res.coinToss && res.firstScore && typeof res.totalPoints === 'number';
-  area.innerHTML = `
+  area.innerHTML = championBox(rows, allFinal, res) + `
     <h2 class="section-title">🏆 The Harvest Table</h2>
     ${typeof res.totalPoints === 'number' && dg
       ? `<p class="muted" style="margin-top:-6px;">Golden Drumstick final total: <strong>${res.totalPoints}</strong> points</p>`
@@ -613,11 +639,40 @@ function renderBoard() {
             <strong>${escapeHtml(r.pick.playerName)}</strong>${allFinal && r.rank === 1 ? '<span class="hb-champ">🏆 Harvest Bowl Champion</span>' : ''}
             ${player && player.kidName ? `<span class="muted" style="font-size:12px;"> ${escapeHtml(player.kidName)}</span>` : ''}
             <div class="hb-marks">${r.marks.map(m =>
-              `<span class="hb-mark ${m.state === 'yes' ? 'yes' : m.state === 'no' ? 'no' : ''} ${m.gold ? 'gold' : ''}">${escapeHtml(m.label)}</span>`).join('')}</div>
+              `<span class="hb-mark ${m.state === 'yes' ? 'yes' : m.state === 'tie' ? 'tie' : m.state === 'no' ? 'no' : ''} ${m.gold ? 'gold' : ''}" ${m.state === 'tie' ? 'title="Tie game: both teams count as a win"' : ''}>${escapeHtml(m.label)}${m.state === 'tie' ? ' 🤝' : ''}</span>`).join('')}</div>
           </div>
           ${anyResults ? `<div class="hb-pts">${r.points}<small>of 7</small></div>` : ''}
         </div>`;
       }).join('')}`;
+}
+
+/** HARVEST-CHAMPION-V1: the big champion box, shown once every result is in.
+ * Ranking is points first, then the closest Gobbler Guess (buildBoard handles both),
+ * so co-champions only happen if both are tied on points AND equally close. */
+function championBox(rows, allFinal, res) {
+  if (!allFinal || rows.length === 0) return '';
+  const champs = rows.filter(r => r.rank === 1);
+  const second = rows.find(r => r.rank !== 1);
+  const tiebreakUsed = second && second.points === champs[0].points;
+  const one = champs.length === 1;
+  return `<div class="hb-champ-box" role="status">
+    <div class="hb-champ-kicker">Thanksgiving ${new Date().getFullYear()}</div>
+    <div class="hb-champ-title">${one ? 'Harvest Champion' : 'Harvest Co-Champions'}</div>
+    <div class="hb-champ-winners">
+      ${champs.map(r => {
+        const player = playersById[r.pick.playerId];
+        return `<div class="hb-champ-one">
+          <span class="trophy" aria-hidden="true">🏆</span>
+          ${playerBadgeImgTag(player, 64)}
+          <div class="hb-champ-name">${escapeHtml(r.pick.playerName)}</div>
+          ${player && player.kidName ? `<div class="hb-champ-kid">${escapeHtml(player.kidName)}</div>` : ''}
+          <div class="hb-champ-stats">${r.points} of 7 points · guessed ${typeof r.pick.totalGuess === 'number' ? r.pick.totalGuess : '?'} (actual ${res.totalPoints})</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="hb-champ-prize">🎁 ${one ? 'Wins' : 'Win'} the Harvest Bowl prize!</div>
+    ${tiebreakUsed ? `<div class="hb-champ-why">Tied on points, so the closest Gobbler Guess decided it.</div>` : ''}
+  </div>`;
 }
 
 // ---------- admin ----------
@@ -643,6 +698,7 @@ function renderAdmin() {
       <option value="">Not decided</option>
       <option value="away" ${res.winners && res.winners[g.id] === 'away' ? 'selected' : ''}>${escapeHtml(g.away)}</option>
       <option value="home" ${res.winners && res.winners[g.id] === 'home' ? 'selected' : ''}>${escapeHtml(g.home)}</option>
+      <option value="tie" ${res.winners && res.winners[g.id] === 'tie' ? 'selected' : ''}>🤝 Tie (both teams win)</option>
     </select>`;
   const dg = drumstickGame();
 

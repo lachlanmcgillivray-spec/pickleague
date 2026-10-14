@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>I Scream Hall of Fame — Pick League</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
+</head>
+<body>
+
+<div id="mascotFlankLeft" style="position:absolute; left:20px; width:130px; display:none; flex-direction:column; align-items:flex-start; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<div id="mascotFlankRight" style="position:absolute; right:20px; width:130px; display:none; flex-direction:column; align-items:flex-end; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<script>
+  (function () {
+    var leftTeams = ['bills','dolphins','patriots','jets','ravens','bengals','browns','steelers','texans','colts','jaguars','titans','broncos','chiefs','raiders','chargers'];
+    var rightTeams = ['cowboys','giants','eagles','commanders','bears','lions','packers','vikings','falcons','panthers','saints','buccaneers','cardinals','rams','49ers','seahawks'];
+    var REPEATS = 5; // repeats the 16-team sequence this many times down the page
+
+    function imgTag(team, mirror) {
+      var t = mirror ? 'transform:scaleX(-1); ' : '';
+      return '<img src="' + team + '.png" alt="" style="width:100%; height:auto; ' + t + 'filter:drop-shadow(0 6px 10px rgba(7,14,36,0.28));">';
+    }
+
+    function buildFlankHTML(teams, mirror) {
+      var html = '';
+      for (var r = 0; r < REPEATS; r++) {
+        teams.forEach(function (team) { html += imgTag(team, mirror); });
+      }
+      return html;
+    }
+
+    var leftEl = document.getElementById('mascotFlankLeft');
+    var rightEl = document.getElementById('mascotFlankRight');
+    if (leftEl) leftEl.innerHTML = buildFlankHTML(leftTeams, false);
+    if (rightEl) rightEl.innerHTML = buildFlankHTML(rightTeams, true);
+
+    function positionFlanks() {
+      var header = document.querySelector('.scoreboard');
+      var top = (header ? header.offsetHeight : 260) + 40;
+      if (leftEl) leftEl.style.top = top + 'px';
+      if (rightEl) rightEl.style.top = top + 'px';
+    }
+
+    function updateMascotFlanks() {
+      var show = window.innerWidth >= 900;
+      if (leftEl) leftEl.style.display = show ? 'flex' : 'none';
+      if (rightEl) rightEl.style.display = show ? 'flex' : 'none';
+    }
+
+    positionFlanks();
+    updateMascotFlanks();
+    window.addEventListener('resize', function () { positionFlanks(); updateMascotFlanks(); });
+    window.addEventListener('load', positionFlanks);
+
+    function updateWideLayout() {
+      var wide = window.innerWidth >= 1100;
+      document.querySelectorAll('.wrap, .scoreboard-inner').forEach(function (el) {
+        el.style.maxWidth = wide ? '1040px' : '';
+      });
+      document.body.style.fontSize = wide ? '17px' : '';
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateWideLayout);
+    } else {
+      updateWideLayout();
+    }
+    window.addEventListener('resize', updateWideLayout);
+  })();
+</script>
+
+<header class="scoreboard">
+  <img class="banner-logo" src="banner.jpg" alt="Any Given Sundae League" style="display:block;width:100%;max-width:none;height:auto;margin:0;">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueTag">SEASON AWARDS &amp; CHAMPIONS</p>
+    <h1 class="week-display"><span class="digits">I SCREAM HALL OF FAME</span></h1>
+    <nav class="nav-row">
+      <a class="nav-link" href="index.html">Make Picks</a>
+      <a class="nav-link" href="standings.html">Standings</a>
+      <a class="nav-link" href="scoop.html">The Scoop</a>
+            <a class="nav-link" href="harvest.html">Harvest Bowl</a>
+      <a class="nav-link current" href="halloffame.html">Hall of Fame</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  /* Hall of Fame styles live inline so a cached styles.css can't break them */
+  main.wrap { position:relative; z-index:1; }
+  .hof-intro { text-align:center; }
+  .hof-intro .cone { font-size:46px; line-height:1; display:block; }
+  .hof-intro h2 { font-family:var(--font-display); font-weight:400; font-size:30px; color:var(--navy); margin:6px 0 4px; letter-spacing:.5px; }
+  .hof-intro p { margin:4px auto; max-width:52ch; }
+
+  .hof-champ { position:relative; overflow:hidden; text-align:center; padding:26px 20px 22px; margin:6px 0 24px;
+    border:4px solid var(--gold-dark); border-radius:22px; color:white;
+    background:radial-gradient(circle at 50% 0%, #2B3F7A 0%, var(--navy) 55%, var(--navy-dark) 100%);
+    box-shadow:0 10px 26px rgba(16,31,69,0.28); }
+  .hof-champ::before, .hof-champ::after { content:'🍦'; position:absolute; font-size:84px; opacity:.16; top:-6px; }
+  .hof-champ::before { left:-8px; transform:rotate(-18deg); }
+  .hof-champ::after { right:-8px; transform:rotate(18deg); }
+  .hof-kicker { font-family:var(--font-fun); font-weight:700; letter-spacing:2px; font-size:13px; color:var(--gold); text-transform:uppercase; }
+  .hof-champ-title { font-family:var(--font-display); font-weight:400; font-size:36px; letter-spacing:1px; color:var(--pink); margin:2px 0 14px; line-height:1.05; }
+  .hof-winners { display:flex; justify-content:center; flex-wrap:wrap; gap:18px; }
+  .hof-one { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:150px; }
+  .hof-one .trophy { font-size:46px; line-height:1; }
+  .hof-name { font-family:var(--font-fun); font-weight:700; font-size:24px; color:white; }
+  .hof-kid { font-size:14px; color:#C9D2EE; }
+  .hof-stat { font-size:14px; color:var(--gold); font-weight:600; }
+  .hof-note { font-size:12px; color:#C9D2EE; margin-top:12px; }
+
+  .hof-minis { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; margin-bottom:24px; }
+  .hof-mini { border-radius:18px; padding:16px; text-align:center; border:3px solid var(--pumpkin, #E8742B);
+    background:linear-gradient(160deg, #FFF4E2 0%, #FFE6C7 100%); }
+  .hof-mini .mini-emoji { font-size:34px; line-height:1; }
+  .hof-mini .mini-name { font-family:var(--font-display); font-size:22px; color:var(--navy); margin:4px 0 8px; letter-spacing:.5px; }
+  .hof-mini .mini-winner { font-family:var(--font-fun); font-weight:700; font-size:18px; color:var(--navy); }
+  .hof-mini .mini-sub { font-size:13px; color:var(--ink-soft); margin-top:4px; }
+  .hof-mini.pending { border-style:dashed; opacity:.85; }
+
+  .hof-awards { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; }
+  .hof-award { background:white; border-radius:18px; padding:16px; box-shadow:var(--shadow); border-top:6px solid var(--pink); display:flex; flex-direction:column; gap:8px; }
+  .hof-award:nth-child(3n+2) { border-top-color:var(--gold); }
+  .hof-award:nth-child(3n) { border-top-color:var(--navy); }
+  .hof-award-head { display:flex; align-items:center; gap:10px; }
+  .hof-award-emoji { font-size:30px; line-height:1; }
+  .hof-award-title { font-family:var(--font-fun); font-weight:700; font-size:17px; color:var(--navy); }
+  .hof-award-desc { font-size:13px; color:var(--ink-soft); }
+  .hof-award-win { display:flex; align-items:center; gap:10px; background:#FFF8E6; border-radius:12px; padding:8px 10px; }
+  .hof-award-win strong { font-family:var(--font-fun); font-size:16px; color:var(--navy); }
+  .hof-award-win .why { font-size:13px; color:var(--pink-dark); font-weight:600; }
+  .hof-award-empty { font-size:13px; color:var(--ink-soft); font-style:italic; }
+  .hof-award-also { font-size:12px; color:var(--ink-soft); }
+
+  .hof-kings { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; }
+  .hof-king { background:white; border-radius:12px; padding:8px 12px; font-size:14px; box-shadow:var(--shadow); }
+  .hof-king b { font-family:var(--font-fun); color:var(--navy); }
+  .hof-king span { display:block; color:var(--ink-soft); font-size:12px; }
+
+  @media (max-width:520px) { .hof-champ-title { font-size:28px; } .hof-name { font-size:20px; } }
+</style>
+
+<main class="wrap">
+  <div class="card hof-intro">
+    <span class="cone" aria-hidden="true">🍦</span>
+    <h2>Welcome to the I Scream Hall of Fame</h2>
+    <p>The season champion, every mini-comp winner, and 10 fun awards. Everything updates on its own as results come in.</p>
+  </div>
+
+  <div id="loadingNote" class="muted" style="text-align:center; padding:24px;">Loading…</div>
+  <div id="champArea"></div>
+  <div id="miniArea"></div>
+  <div id="awardArea"></div>
+  <div id="kingsArea"></div>
+
+  <img src="backdrop.jpg" alt="Any Given Sundae League mascots" style="display:block; width:100%; height:auto; border-radius:16px; box-shadow:0 6px 18px rgba(16,31,69,0.14); margin:24px 0 18px;">
+</main>
+
+<p class="footer-note">🍦 Award ties go to whoever is higher in the season standings. Each kid can win only so many awards, so everyone gets a shot.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+// HALL-OF-FAME-V1  (search View Source for this to confirm the live version)
+
+/** The draft-kit categories (same list as The Scoop). Teams match on their last word. */
+const CATEGORIES = [
+  { name: 'Big Cats',               emoji: '🐾', teams: ['lions', 'bengals', 'jaguars', 'panthers'] },
+  { name: 'Breaking the Law',       emoji: '🚔', teams: ['buccaneers', 'raiders', 'cowboys', 'vikings', 'patriots'] },
+  { name: 'The Wild West',          emoji: '🌵', teams: ['bills', 'texans', 'chiefs'] },
+  { name: 'Gods & Monsters',        emoji: '✨', teams: ['saints', 'giants', 'titans'] },
+  { name: 'Working 9-5',            emoji: '🕘', teams: ['packers', 'steelers', 'commanders'] },
+  { name: 'Angry Birds',            emoji: '🐦', teams: ['cardinals', 'falcons', 'ravens', 'eagles', 'seahawks'] },
+  { name: 'The Elements',           emoji: '🔥', teams: ['dolphins', 'bears', 'chargers', '49ers'] },
+  { name: 'Old McNFL Had a Farm',   emoji: '🚜', teams: ['broncos', 'colts', 'rams'] },
+  { name: 'The Factory of Sadness', emoji: '🏭', teams: ['jets', 'browns'] }
+];
+const FINAL_WEEK = 18; // the season counts as finished once this week's games all have results
+
+function teamKey(name) {
+  const w = String(name || '').trim().split(/\s+/);
+  return w[w.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function toMs(ts) { return ts ? (ts.toDate ? ts.toDate().getTime() : new Date(ts).getTime()) : null; }
+function plural(n, one, many) { return `${n} ${n === 1 ? one : (many || one + 's')}`; }
+
+let players = [], playersById = {}, weeks = [], picks = [], events = [], eventPicks = [];
+let standingRank = {};   // playerId -> rank (1 = top), used for every tiebreak
+
+async function init() {
+  await ensureSignedIn();
+  [players, weeks, picks] = await Promise.all([getPlayers(), getWeeks(), getAllPicks()]);
+  players.forEach(p => { playersById[p.id] = p; });
+  picks = picks.filter(p => playersById[p.playerId]);              // skip removed players
+  weeks.sort((a, b) => (a.weekNumber || 0) - (b.weekNumber || 0));
+  try {
+    const [evSnap, epSnap] = await Promise.all([db.collection('events').get(), db.collection('eventPicks').get()]);
+    events = evSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    eventPicks = epSnap.docs.map(d => d.data()).filter(p => playersById[p.playerId]);
+  } catch (e) { console.error(e); }
+
+  document.getElementById('loadingNote').style.display = 'none';
+  const standings = computeStandings(weeks, picks).filter(s => playersById[s.playerId]);
+  standings.forEach((s, i) => { standingRank[s.playerId] = i + 1; });
+
+  renderChampion(standings);
+  renderMinis();
+  renderAwards();
+}
+
+// ---------- season champion ----------
+function seasonIsFinal() {
+  const last = weeks.find(w => w.weekNumber === FINAL_WEEK);
+  return !!(last && (last.games || []).length && last.games.every(g => g.winner));
+}
+
+function renderChampion(standings) {
+  const el = document.getElementById('champArea');
+  const scored = standings.filter(s => s.points > 0);
+  if (!scored.length) {
+    el.innerHTML = `<div class="card" style="text-align:center;">No results yet. The champion shows up here once games are decided.</div>`;
+    return;
+  }
+  const top = scored[0].points;
+  const leaders = scored.filter(s => s.points === top);
+  const final = seasonIsFinal();
+  el.innerHTML = `<div class="hof-champ">
+    <div class="hof-kicker">${final ? 'Season champion' : 'Season so far'}</div>
+    <div class="hof-champ-title">${final ? (leaders.length > 1 ? 'Sundae Co-Champions' : 'Sundae Champion') : (leaders.length > 1 ? 'Tied for the lead' : 'Leading the way')}</div>
+    <div class="hof-winners">${leaders.map(s => personBlock(s.playerId, `${s.points} points`)).join('')}</div>
+    ${final ? '' : `<div class="hof-note">The crown is official once Week ${FINAL_WEEK} results are in.</div>`}
+  </div>`;
+}
+
+function personBlock(playerId, stat) {
+  const p = playersById[playerId];
+  return `<div class="hof-one">
+    <span class="trophy" aria-hidden="true">🏆</span>
+    ${playerBadgeImgTag(p, 64)}
+    <div class="hof-name">${escapeHtml(p ? p.name : '?')}</div>
+    ${p && p.kidName ? `<div class="hof-kid">${escapeHtml(p.kidName)}</div>` : ''}
+    <div class="hof-stat">${escapeHtml(stat)}</div>
+  </div>`;
+}
+
+// ---------- mini comps (Harvest Bowl format) ----------
+function scoreMiniComp(ev) {
+  const res = ev.results || {};
+  const games = ev.games || [];
+  const final = games.length && games.every(g => (res.winners || {})[g.id]) && res.coinToss && res.firstScore && typeof res.totalPoints === 'number';
+  if (!final) return null;
+  const rows = eventPicks.filter(p => p.eventId === ev.id).map(p => {
+    let points = 0;
+    games.forEach(g => {
+      const actual = res.winners[g.id], mine = (p.winners || {})[g.id];
+      if (mine && (actual === 'tie' || mine === actual)) points += g.id === ev.drumstickId ? 2 : 1;
+    });
+    if (p.coinToss && p.coinToss === res.coinToss) points += 1;
+    if (p.firstScore && p.firstScore === res.firstScore) points += 1;
+    const off = typeof p.totalGuess === 'number' ? Math.abs(p.totalGuess - res.totalPoints) : 9999;
+    return { p, points, off };
+  });
+  if (!rows.length) return { winners: [], total: 0 };
+  const best = Math.min(...rows.map(r => r.off));
+  rows.forEach(r => { if (r.off === best && best !== 9999) r.points += 1; });
+  rows.sort((a, b) => b.points - a.points || a.off - b.off);
+  const winners = rows.filter(r => r.points === rows[0].points && r.off === rows[0].off);
+  return { winners, total: rows.length };
+}
+
+function renderMinis() {
+  const el = document.getElementById('miniArea');
+  if (!events.length) { el.innerHTML = ''; return; }
+  const cards = events.map(ev => {
+    const name = ev.name || 'Mini comp';
+    const emoji = /harvest/i.test(name) ? '🦃' : /turkey/i.test(name) ? '🦃' : /stocking|christmas/i.test(name) ? '🎄' : '🏅';
+    const result = scoreMiniComp(ev);
+    if (!result) {
+      return `<div class="hof-mini pending"><div class="mini-emoji">${emoji}</div><div class="mini-name">${escapeHtml(name)}</div>
+        <div class="mini-sub">Still being played. The champion appears once every result is in.</div></div>`;
+    }
+    const names = result.winners.map(r => escapeHtml(r.p.playerName)).join(' &amp; ') || 'No entries';
+    const r0 = result.winners[0];
+    return `<div class="hof-mini"><div class="mini-emoji">${emoji}</div><div class="mini-name">${escapeHtml(name)}</div>
+      <div class="mini-winner">🏆 ${names}</div>
+      ${r0 ? `<div class="mini-sub">${r0.points} of 7 points · ${result.winners.length > 1 ? 'Co-champions' : 'Champion'} of ${plural(result.total, 'player')}</div>` : ''}</div>`;
+  }).join('');
+  el.innerHTML = `<h2 class="section-title">🏅 Mini Comp Champions</h2><div class="hof-minis">${cards}</div>`;
+}
+
+// ---------- season stats for the fun awards ----------
+/** Every decided pick in time order: { playerId, team, weekIdx, won } plus per-week info. */
+function buildSeasonData() {
+  const weekById = {}; weeks.forEach((w, i) => { weekById[w.id] = { w, i }; });
+  const perPlayer = {};
+  players.forEach(p => { perPlayer[p.id] = { picks: [], teams: {}, weeks: [] }; });
+
+  picks.forEach(pk => {
+    const info = weekById[pk.weekId];
+    if (!info) return;
+    const games = info.w.games || [];
+    const entry = perPlayer[pk.playerId];
+    const weekPicks = [];
+    (pk.pickedTeams || []).forEach(team => {
+      const gi = games.findIndex(g => g.away === team || g.home === team);
+      const g = games[gi];
+      const decided = !!(g && g.winner);
+      const won = decided && (g.winner === 'tie' || (g.winner === 'away' ? g.away : g.home) === team);
+      const kick = g ? (toMs(g.kickoffAt) || 0) : 0;
+      const row = { team, weekIdx: info.i, gameIdx: gi, kick, decided, won };
+      entry.teams[team] = (entry.teams[team] || 0) + 1;
+      entry.picks.push(row);
+      weekPicks.push(row);
+    });
+    entry.weeks.push({ weekId: pk.weekId, weekIdx: info.i, rows: weekPicks, lockedAt: pk.pickLocked !== false ? toMs(pk.lockedAt) : null });
+  });
+  Object.values(perPlayer).forEach(e => e.picks.sort((a, b) => a.weekIdx - b.weekIdx || a.kick - b.kick || a.gameIdx - b.gameIdx));
+  return perPlayer;
+}
+
+function categoryCount(entry, cat) {
+  return Object.entries(entry.teams).reduce((n, [team, c]) => n + (cat.teams.includes(teamKey(team)) ? c : 0), 0);
+}
+
+/** Each award: compute(entry, playerId, ctx) -> { value, why } or null if not eligible. Higher value wins
+ * (lowerIsBetter flips it). */
+function buildAwards(data) {
+  // How many players picked each team, per week (for Lone Wolf).
+  const pickersByWeekTeam = {};
+  picks.forEach(pk => (pk.pickedTeams || []).forEach(t => {
+    const k = pk.weekId + '|' + t; pickersByWeekTeam[k] = (pickersByWeekTeam[k] || 0) + 1;
+  }));
+  const entrantsByWeek = {};
+  picks.forEach(pk => { entrantsByWeek[pk.weekId] = (entrantsByWeek[pk.weekId] || 0) + 1; });
+
+  // Early Bird: order of lock-ins each week.
+  const firstLocks = {}, lockPctSum = {}, lockWeeks = {};
+  weeks.forEach(w => {
+    const locked = picks.filter(p => p.weekId === w.id && p.pickLocked !== false && toMs(p.lockedAt))
+      .sort((a, b) => toMs(a.lockedAt) - toMs(b.lockedAt));
+    if (locked.length < 2) return;
+    locked.forEach((p, i) => {
+      lockPctSum[p.playerId] = (lockPctSum[p.playerId] || 0) + i / (locked.length - 1);
+      lockWeeks[p.playerId] = (lockWeeks[p.playerId] || 0) + 1;
+      if (i === 0) firstLocks[p.playerId] = (firstLocks[p.playerId] || 0) + 1;
+    });
+  });
+
+  // Comeback Kid: rank after each week that has any results.
+  const climb = {};
+  const decidedWeeks = weeks.filter(w => (w.games || []).some(g => g.winner));
+  if (decidedWeeks.length >= 2) {
+    const worst = {};
+    decidedWeeks.forEach((w, i) => {
+      const upTo = decidedWeeks.slice(0, i + 1).map(x => x.id);
+      const table = computeStandings(decidedWeeks.slice(0, i + 1), picks.filter(p => upTo.includes(p.weekId)));
+      const pts = {}; table.forEach(t => { pts[t.playerId] = t.points; });
+      // competition ranking: everyone tied shares the rank
+      const rankOf = id => 1 + table.filter(t => t.points > (pts[id] || 0)).length;
+      players.forEach(p => {
+        const r = rankOf(p.id);
+        if (i > 0 && worst[p.id] !== undefined) climb[p.id] = Math.max(climb[p.id] || 0, worst[p.id] - r);
+        worst[p.id] = Math.max(worst[p.id] || 0, r);
+      });
+    });
+  }
+
+  const maxDecided = Math.max(0, ...Object.values(data).map(e => e.picks.filter(r => r.decided).length));
+
+  return [
+    { id: 'bigcat', emoji: '🐾', title: 'Big Cat Collector', desc: 'Picked the most Big Cats: Lions, Bengals, Jaguars and Panthers.',
+      compute: e => { const n = categoryCount(e, CATEGORIES[0]); return n ? { value: n, why: plural(n, 'Big Cat pick') } : null; } },
+    { id: 'streak', emoji: '🔥', title: 'Hot Streak', desc: 'The longest run of correct picks in a row.',
+      compute: e => { let best = 0, cur = 0; e.picks.filter(r => r.decided).forEach(r => { cur = r.won ? cur + 1 : 0; best = Math.max(best, cur); });
+        return best ? { value: best, why: `${best} correct in a row` } : null; } },
+    { id: 'perfect', emoji: '🍨', title: 'Perfect Sundae', desc: 'The most perfect 3-for-3 weeks.',
+      compute: e => { const n = e.weeks.filter(w => w.rows.length === 3 && w.rows.every(r => r.decided && r.won)).length;
+        return n ? { value: n, why: plural(n, 'perfect week') } : null; } },
+    { id: 'lonewolf', emoji: '🐺', title: 'Lone Wolf', desc: 'The most correct picks of teams almost nobody else chose.',
+      compute: (e, id) => { let n = 0;
+        picks.filter(p => p.playerId === id).forEach(pk => (pk.pickedTeams || []).forEach(t => {
+          const row = e.picks.find(r => r.team === t && weeks[r.weekIdx] && weeks[r.weekIdx].id === pk.weekId);
+          const limit = Math.max(2, Math.floor((entrantsByWeek[pk.weekId] || 0) * 0.2));
+          if (row && row.won && (pickersByWeekTeam[pk.weekId + '|' + t] || 0) <= limit) n++;
+        }));
+        return n ? { value: n, why: plural(n, 'bold pick') + ' that won' } : null; } },
+    { id: 'earlybird', emoji: '🐦', title: 'Early Bird', desc: 'Usually the first to lock in their picks each week.',
+      compute: (e, id) => { if (!lockWeeks[id] || lockWeeks[id] < 2) return null;
+        const avg = lockPctSum[id] / lockWeeks[id]; const firsts = firstLocks[id] || 0;
+        return { value: (1 - avg) * 1000 + firsts, why: firsts ? `First to lock in ${plural(firsts, 'time')}` : 'Always early to lock in' }; } },
+    { id: 'loyal', emoji: '💙', title: 'Loyal Fan', desc: 'Picked the same team the most times.',
+      compute: e => { const top = Object.entries(e.teams).sort((a, b) => b[1] - a[1])[0];
+        return top && top[1] > 1 ? { value: top[1], why: `Picked the ${top[0].split(' ').pop()} ${top[1]} times` } : null; } },
+    { id: 'globe', emoji: '🌎', title: 'Globetrotter', desc: 'Picked the most different teams.',
+      compute: e => { const n = Object.keys(e.teams).length; return n ? { value: n, why: plural(n, 'different team') } : null; } },
+    { id: 'comeback', emoji: '📈', title: 'Comeback Kid', desc: 'The biggest climb up the standings from their lowest spot.',
+      compute: (e, id) => climb[id] > 0 ? { value: climb[id], why: `Climbed ${plural(climb[id], 'spot')}` } : null },
+    { id: 'sadness', emoji: '🏭', title: 'Factory of Sadness Survivor', desc: 'The brave soul who picked the Jets and Browns the most.',
+      compute: e => { const n = categoryCount(e, CATEGORIES[8]); return n ? { value: n, why: plural(n, 'Jets/Browns pick') } : null; } },
+    { id: 'sharp', emoji: '🎯', title: 'Sharpshooter', desc: 'The best win percentage (needs at least half as many decided picks as the busiest player).',
+      compute: e => { const d = e.picks.filter(r => r.decided); if (!d.length || d.length < maxDecided / 2) return null;
+        const w = d.filter(r => r.won).length; const pct = w / d.length;
+        return { value: pct, why: `${Math.round(pct * 100)}% (${w} of ${d.length})` }; } }
+  ];
+}
+
+/** Rank candidates for every award, then hand out awards so no kid wins more than their share.
+ * Ties go to whoever is higher in the season standings. */
+function assignAwards(awards, data) {
+  const eligibleIds = players.map(p => p.id);
+  awards.forEach(a => {
+    a.ranked = eligibleIds.map(id => ({ id, r: a.compute(data[id], id) }))
+      .filter(x => x.r)
+      .sort((x, y) => y.r.value - x.r.value || (standingRank[x.id] || 999) - (standingRank[y.id] || 999));
+  });
+  const contenders = new Set(awards.flatMap(a => a.ranked.map(x => x.id)));
+  const cap = Math.max(1, Math.ceil(awards.length / Math.max(1, contenders.size)));
+  const won = {};
+  awards.forEach(a => {
+    if (!a.ranked.length) return;
+    const pick = a.ranked.find(x => (won[x.id] || 0) < cap) || a.ranked[0];
+    a.winner = pick;
+    a.bumped = a.ranked[0] !== pick ? a.ranked[0] : null;
+    won[pick.id] = (won[pick.id] || 0) + 1;
+  });
+  return cap;
+}
+
+function renderAwards() {
+  const data = buildSeasonData();
+  const awards = buildAwards(data);
+  const cap = assignAwards(awards, data);
+
+  document.getElementById('awardArea').innerHTML = `
+    <h2 class="section-title">🍦 The Fun Awards</h2>
+    <p class="muted" style="margin-top:-6px;">Each kid can win up to ${plural(cap, 'award')}, so the prizes get shared around. Ties go to whoever is higher in the standings.</p>
+    <div class="hof-awards">${awards.map(a => {
+      const w = a.winner, p = w && playersById[w.id];
+      return `<div class="hof-award">
+        <div class="hof-award-head"><span class="hof-award-emoji" aria-hidden="true">${a.emoji}</span><span class="hof-award-title">${escapeHtml(a.title)}</span></div>
+        <div class="hof-award-desc">${escapeHtml(a.desc)}</div>
+        ${w ? `<div class="hof-award-win">${playerBadgeImgTag(p, 36)}<div><strong>${escapeHtml(p.name)}</strong>${p.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(p.kidName)}</span>` : ''}<div class="why">${escapeHtml(w.r.why)}</div></div></div>`
+            : `<div class="hof-award-empty">Up for grabs. Nobody has earned this one yet.</div>`}
+        ${a.bumped ? `<div class="hof-award-also">${escapeHtml(playersById[a.bumped.id].name)} also led this one (${escapeHtml(a.bumped.r.why)}) but already has their share of awards.</div>` : ''}
+      </div>`;
+    }).join('')}</div>`;
+
+  // Category Kings: just for fun, doesn't count toward anyone's award share.
+  const kings = CATEGORIES.map(cat => {
+    const ranked = players.map(p => ({ id: p.id, n: categoryCount(data[p.id], cat) })).filter(x => x.n > 0)
+      .sort((a, b) => b.n - a.n || (standingRank[a.id] || 999) - (standingRank[b.id] || 999));
+    const top = ranked[0];
+    return `<div class="hof-king">${cat.emoji} <b>${escapeHtml(cat.name)}</b>
+      <span>${top ? `${escapeHtml(playersById[top.id].name)}: ${plural(top.n, 'pick')}` : 'Nobody yet'}</span></div>`;
+  }).join('');
+  document.getElementById('kingsArea').innerHTML = `
+    <h2 class="section-title" style="margin-top:24px;">👑 Category Kings</h2>
+    <p class="muted" style="margin-top:-6px;">Who picked each draft-kit category the most. Just for bragging rights.</p>
+    <div class="hof-kings">${kings}</div>`;
+}
+
+init().catch(err => {
+  console.error(err);
+  document.getElementById('loadingNote').innerHTML = `<div class="banner error">Something went wrong loading the page. Try refreshing.</div>`;
+});
+</script>
+</body>
+</html>
