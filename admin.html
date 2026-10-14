@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin — Pick League</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
 </head>
 <body>
 
@@ -479,6 +486,7 @@ function renderGameRows() {
         <option value="">No winner yet</option>
         <option value="away" ${g.winner === 'away' ? 'selected' : ''}>${g.away ? escapeHtml(g.away) + ' won' : 'Away team won'}</option>
         <option value="home" ${g.winner === 'home' ? 'selected' : ''}>${g.home ? escapeHtml(g.home) + ' won' : 'Home team won'}</option>
+        <option value="tie" ${g.winner === 'tie' ? 'selected' : ''}>🤝 Tie (both teams win)</option>
       </select>
       <button class="danger" type="button" data-remove="${i}">✕</button>
     </div>
@@ -688,8 +696,8 @@ async function loadAdminPicksViewer() {
         const teamsHtml = p ? (p.pickedTeams || []).map(team => {
           const game = (week.games || []).find(g => g.away === team || g.home === team);
           const decided = game && game.winner;
-          const won = decided && ((game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
-          const cls = !decided ? 'pick-pending' : (won ? 'pick-correct' : 'pick-wrong');
+          const won = decided && (game.winner === 'tie' || (game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
+          const cls = !decided ? 'pick-pending' : game.winner === 'tie' ? 'pick-tie' : (won ? 'pick-correct' : 'pick-wrong');
           return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
         }).join('') : `<span class="muted">No picks submitted</span>`;
         const score = p ? scorePick(p, week) : null;

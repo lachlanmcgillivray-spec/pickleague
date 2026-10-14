@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pick League</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
 </head>
 <body>
 
@@ -465,12 +472,13 @@ function renderGames() {
     const selected = selectedTeams.includes(t.team);
     const game = currentWeek.games.find(g => g.id === t.gameId);
     const decided = game?.winner;
-    const won = decided === t.side;
+    const isTie = decided === 'tie';
+    const won = decided === t.side || isTie;
     const gameStarted = game?.kickoffAt &&
       (game.kickoffAt.toDate ? game.kickoffAt.toDate() : new Date(game.kickoffAt)).getTime() <= Date.now();
     const classes = ['team-tile'];
     if (selected) classes.push('selected');
-    if (decided && won) classes.push('winner');
+    if (decided && won) classes.push(isTie ? 'tie-win' : 'winner');
     if (decided && selected && !won) classes.push('locked-wrong');
     if (gameStarted && !decided) classes.push('locked-wrong');
     const disableTile = locked || gameStarted || decided || (!selected && selectedTeams.length >= 3);
@@ -478,7 +486,7 @@ function renderGames() {
     return `
       <button class="${classes.join(' ')}" data-team="${escapeHtml(t.team)}" ${disableTile ? 'disabled' : ''}>
         ${gameStarted && !decided ? '<span class="tile-crown">🔒</span>' : ''}
-        ${decided && won ? '<span class="tile-crown">🏆</span>' : ''}
+        ${decided && won ? `<span class="tile-crown">${isTie ? '🤝' : '🏆'}</span>` : ''}
         ${teamLogoImgTag(t.team, 60)}
         <span class="tile-team-name">${escapeHtml(t.team)}</span>
         <span class="tile-opponent">vs ${escapeHtml(t.opponent)}</span>

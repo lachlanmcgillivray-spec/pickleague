@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>The Scoop — Pick League</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
 </head>
 <body>
 
@@ -190,7 +197,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// SCOOP-PAGE-V4  (search View Source for this to confirm the live version)
+// SCOOP-PAGE-V5  (search View Source for this to confirm the live version)
 let players = [];
 let playersById = {};
 let weeks = [];
@@ -410,7 +417,7 @@ function tallyCategories(picksWithWeek) {
       const row = rows.find(r => r.cat === c);
       row.picks += 1;
       const r = teamResult(week, team);
-      if (r === 'won') row.won += 1;
+      if (r === 'won' || r === 'tie') row.won += 1;
       else if (r === 'lost') row.lost += 1;
     });
   });
@@ -500,6 +507,7 @@ function countTeams(picks) {
 function teamResult(week, team) {
   const g = (week.games || []).find(g => g.away === team || g.home === team);
   if (!g || !g.winner) return null;
+  if (g.winner === 'tie') return 'tie';
   const winnerName = g.winner === 'away' ? g.away : g.home;
   return winnerName === team ? 'won' : 'lost';
 }
@@ -536,7 +544,7 @@ function renderTally(week, shown) {
   const unpicked = (week.games || []).flatMap(g => [g.away, g.home]).filter(t => !counts[t]);
   el.innerHTML = html +
     (unpicked.length ? `<p class="tally-legend">Nobody picked: ${unpicked.map(escapeHtml).join(', ')}</p>` : '') +
-    (anyResults ? `<p class="tally-legend">🟢 green = won &nbsp; ⚪ grey = lost</p>` : '');
+    (anyResults ? `<p class="tally-legend">🟢 green = won &nbsp; 🟣 purple = tie (counts as a win) &nbsp; ⚪ grey = lost</p>` : '');
 }
 
 function renderByGame(week, counts) {
@@ -544,8 +552,8 @@ function renderByGame(week, counts) {
   if (games.length === 0) return `<p class="muted">No games set up for this week.</p>`;
   return games.map(g => {
     const a = counts[g.away] || 0, h = counts[g.home] || 0, total = a + h;
-    const res = g.winner ? (g.winner === 'away' ? ' ✅' : '') : '';
-    const resH = g.winner ? (g.winner === 'home' ? ' ✅' : '') : '';
+    const res = g.winner === 'tie' ? ' 🤝' : g.winner ? (g.winner === 'away' ? ' ✅' : '') : '';
+    const resH = g.winner === 'tie' ? ' 🤝' : g.winner ? (g.winner === 'home' ? ' ✅' : '') : '';
     const bar = total === 0
       ? `<div class="h2h-none">Nobody picked this game</div>`
       : `<div class="h2h-bar">
@@ -578,7 +586,7 @@ function renderPicks(week, shown) {
     const score = scorePick(p, week);
     const chips = (p.pickedTeams || []).map(team => {
       const r = teamResult(week, team);
-      const cls = r === 'won' ? 'pick-correct' : r === 'lost' ? 'pick-wrong' : 'pick-pending';
+      const cls = r === 'won' ? 'pick-correct' : r === 'tie' ? 'pick-tie' : r === 'lost' ? 'pick-wrong' : 'pick-pending';
       return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
     }).join('');
     return `

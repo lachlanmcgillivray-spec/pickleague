@@ -5,6 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Standings — Pick League</title>
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
 </head>
 <body>
 
@@ -253,8 +260,8 @@ async function loadWeekPicks(weekId, totalPlayers) {
       const teamsHtml = (p.pickedTeams || []).map(team => {
         const game = (week.games || []).find(g => g.away === team || g.home === team);
         const decided = game && game.winner;
-        const won = decided && ((game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
-        const cls = !decided ? 'pick-pending' : (won ? 'pick-correct' : 'pick-wrong');
+        const won = decided && (game.winner === 'tie' || (game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
+        const cls = !decided ? 'pick-pending' : game.winner === 'tie' ? 'pick-tie' : (won ? 'pick-correct' : 'pick-wrong');
         return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
       }).join('');
       return `
@@ -300,7 +307,10 @@ function renderWeekBreakdown(weeks) {
   const html = decidedWeeks.map(w => {
     const rows = (w.games || []).filter(g => g.winner).map(g => {
       const winnerName = g.winner === 'away' ? g.away : g.home;
-      return `<div class="muted" style="display:flex; align-items:center; gap:6px;">${teamLogoImgTag(g.away, 20)}${escapeHtml(g.away)} @ ${teamLogoImgTag(g.home, 20)}${escapeHtml(g.home)} — <strong>${escapeHtml(winnerName)}</strong> won</div>`;
+      const outcome = g.winner === 'tie'
+        ? `<span class="tie-note">🤝 Tie, both teams count as a win</span>`
+        : `<strong>${escapeHtml(winnerName)}</strong> won`;
+      return `<div class="muted" style="display:flex; align-items:center; gap:6px;">${teamLogoImgTag(g.away, 20)}${escapeHtml(g.away)} @ ${teamLogoImgTag(g.home, 20)}${escapeHtml(g.home)} — ${outcome}</div>`;
     }).join('');
     return `<div class="card"><h2 class="section-title">${escapeHtml(w.label || ('Week ' + w.weekNumber))} results</h2>${rows}</div>`;
   }).join('');

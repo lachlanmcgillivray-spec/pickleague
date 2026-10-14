@@ -198,8 +198,9 @@ function buildTeamResultsByWeek(weeks) {
     const m = {};
     (w.games || []).forEach(g => {
       const decided = !!g.winner;
-      m[g.away] = { decided, won: g.winner === 'away' };
-      m[g.home] = { decided, won: g.winner === 'home' };
+      // A tie counts as a win for both teams.
+      m[g.away] = { decided, won: g.winner === 'away' || g.winner === 'tie' };
+      m[g.home] = { decided, won: g.winner === 'home' || g.winner === 'tie' };
     });
     map[w.id] = m;
   });
