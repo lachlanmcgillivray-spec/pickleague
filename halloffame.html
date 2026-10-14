@@ -170,7 +170,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// HALL-OF-FAME-V1  (search View Source for this to confirm the live version)
+// HALL-OF-FAME-V2  (search View Source for this to confirm the live version)
 
 /** The draft-kit categories (same list as The Scoop). Teams match on their last word. */
 const CATEGORIES = [
@@ -450,7 +450,6 @@ function renderAwards() {
         <div class="hof-award-desc">${escapeHtml(a.desc)}</div>
         ${w ? `<div class="hof-award-win">${playerBadgeImgTag(p, 36)}<div><strong>${escapeHtml(p.name)}</strong>${p.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(p.kidName)}</span>` : ''}<div class="why">${escapeHtml(w.r.why)}</div></div></div>`
             : `<div class="hof-award-empty">Up for grabs. Nobody has earned this one yet.</div>`}
-        ${a.bumped ? `<div class="hof-award-also">${escapeHtml(playersById[a.bumped.id].name)} also led this one (${escapeHtml(a.bumped.r.why)}) but already has their share of awards.</div>` : ''}
       </div>`;
     }).join('')}</div>`;
 
