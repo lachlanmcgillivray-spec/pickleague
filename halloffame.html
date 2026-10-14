@@ -136,13 +136,35 @@
   .hof-award-win strong { font-family:var(--font-fun); font-size:16px; color:var(--navy); }
   .hof-award-win .why { font-size:13px; color:var(--pink-dark); font-weight:600; }
   .hof-award-empty { font-size:13px; color:var(--ink-soft); font-style:italic; }
-  .hof-award-also { font-size:12px; color:var(--ink-soft); }
-
+  
   .hof-kings { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:8px; }
   .hof-king { background:white; border-radius:12px; padding:8px 12px; font-size:14px; box-shadow:var(--shadow); }
   .hof-king b { font-family:var(--font-fun); color:var(--navy); }
   .hof-king span { display:block; color:var(--ink-soft); font-size:12px; }
 
+  .hof-season-label { text-align:center; font-family:var(--font-display) !important; font-weight:400; letter-spacing:1px; color:var(--navy); }
+  .hof-recap { display:flex; flex-direction:column; gap:8px; }
+  .hof-recap-row { display:flex; align-items:flex-start; gap:12px; background:white; border-radius:12px; padding:10px 12px; box-shadow:var(--shadow); }
+  .hof-recap-rank { font-family:var(--font-display); font-size:22px; color:var(--pink); min-width:28px; text-align:center; }
+  .hof-recap-main { flex:1; min-width:0; }
+  .hof-recap-main strong { font-family:var(--font-fun); color:var(--navy); font-size:16px; }
+  .hof-recap-line { font-size:13px; color:var(--ink-soft); margin-top:2px; }
+  .hof-recap-pts { font-family:var(--font-display); font-size:24px; color:var(--pink-dark); text-align:right; }
+  .hof-recap-pts small { display:block; font-family:var(--font-body); font-size:11px; color:var(--ink-soft); }
+  .hof-past { background:white; border-radius:16px; box-shadow:var(--shadow); margin-bottom:12px; overflow:hidden; border-left:6px solid var(--gold); }
+  .hof-past summary { cursor:pointer; padding:14px 16px; display:flex; align-items:center; gap:14px; list-style:none; }
+  .hof-past summary::-webkit-details-marker { display:none; }
+  .hof-past summary::after { content:'▾'; margin-left:auto; color:var(--ink-soft); transition:transform .2s; }
+  .hof-past[open] summary::after { transform:rotate(180deg); }
+  .hof-past-year { font-family:var(--font-display); font-size:26px; color:var(--navy); }
+  .hof-past-champ { font-family:var(--font-fun); font-weight:700; color:var(--pink-dark); }
+  .hof-past-body { padding:0 14px 16px; background:#FBF8F1; }
+  .hof-admin { border:2px dashed var(--navy); margin-top:24px; }
+  .hof-admin h3 { font-family:var(--font-fun); color:var(--navy); margin:18px 0 4px; }
+  .hof-admin p { font-size:14px; }
+  .hof-admin label { display:block; font-size:13px; font-weight:600; margin:10px 0 4px; color:var(--navy); }
+  .hof-admin button { margin-top:8px; }
+  .hof-admin button[disabled] { opacity:.5; cursor:not-allowed; }
   @media (max-width:520px) { .hof-champ-title { font-size:28px; } .hof-name { font-size:20px; } }
 </style>
 
@@ -154,10 +176,11 @@
   </div>
 
   <div id="loadingNote" class="muted" style="text-align:center; padding:24px;">Loading…</div>
-  <div id="champArea"></div>
-  <div id="miniArea"></div>
-  <div id="awardArea"></div>
-  <div id="kingsArea"></div>
+  <h2 class="section-title hof-season-label" id="seasonLabel"></h2>
+  <div id="currentArea"></div>
+  <div id="pastArea"></div>
+
+  <div id="adminArea"></div>
 
   <img src="backdrop.jpg" alt="Any Given Sundae League mascots" style="display:block; width:100%; height:auto; border-radius:16px; box-shadow:0 6px 18px rgba(16,31,69,0.14); margin:24px 0 18px;">
 </main>
@@ -170,7 +193,7 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// HALL-OF-FAME-V2  (search View Source for this to confirm the live version)
+// HALL-OF-FAME-V3  (search View Source for this to confirm the live version)
 
 /** The draft-kit categories (same list as The Scoop). Teams match on their last word. */
 const CATEGORIES = [
@@ -195,10 +218,13 @@ function plural(n, one, many) { return `${n} ${n === 1 ? one : (many || one + 's
 
 let players = [], playersById = {}, weeks = [], picks = [], events = [], eventPicks = [];
 let standingRank = {};   // playerId -> rank (1 = top), used for every tiebreak
+let seasonYear = null, isAdminUser = false, pastSeasons = [], liveSnapshot = null;
 
 async function init() {
   await ensureSignedIn();
-  [players, weeks, picks] = await Promise.all([getPlayers(), getWeeks(), getAllPicks()]);
+  const user = auth.currentUser;
+  isAdminUser = !!(user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email));
+  [players, weeks, picks, seasonYear] = await Promise.all([getPlayers(), getWeeks(), getAllPicks(), getSeasonYear()]);
   players.forEach(p => { playersById[p.id] = p; });
   picks = picks.filter(p => playersById[p.playerId]);              // skip removed players
   weeks.sort((a, b) => (a.weekNumber || 0) - (b.weekNumber || 0));
@@ -207,49 +233,30 @@ async function init() {
     events = evSnap.docs.map(d => ({ id: d.id, ...d.data() }));
     eventPicks = epSnap.docs.map(d => d.data()).filter(p => playersById[p.playerId]);
   } catch (e) { console.error(e); }
+  try {
+    const snap = await db.collection('seasons').get();
+    pastSeasons = snap.docs.map(d => d.data()).sort((x, y) => y.year - x.year);
+  } catch (e) { console.error(e); }
 
   document.getElementById('loadingNote').style.display = 'none';
   const standings = computeStandings(weeks, picks).filter(s => playersById[s.playerId]);
   standings.forEach((s, i) => { standingRank[s.playerId] = i + 1; });
 
-  renderChampion(standings);
-  renderMinis();
-  renderAwards();
+  liveSnapshot = buildSnapshot(standings);
+  document.getElementById('seasonLabel').textContent = `The ${seasonYear} season`;
+  document.getElementById('currentArea').innerHTML = renderSnapshot(liveSnapshot, false);
+  renderPast();
+  if (isAdminUser) renderSeasonAdmin();
 }
 
-// ---------- season champion ----------
 function seasonIsFinal() {
   const last = weeks.find(w => w.weekNumber === FINAL_WEEK);
   return !!(last && (last.games || []).length && last.games.every(g => g.winner));
 }
 
-function renderChampion(standings) {
-  const el = document.getElementById('champArea');
-  const scored = standings.filter(s => s.points > 0);
-  if (!scored.length) {
-    el.innerHTML = `<div class="card" style="text-align:center;">No results yet. The champion shows up here once games are decided.</div>`;
-    return;
-  }
-  const top = scored[0].points;
-  const leaders = scored.filter(s => s.points === top);
-  const final = seasonIsFinal();
-  el.innerHTML = `<div class="hof-champ">
-    <div class="hof-kicker">${final ? 'Season champion' : 'Season so far'}</div>
-    <div class="hof-champ-title">${final ? (leaders.length > 1 ? 'Sundae Co-Champions' : 'Sundae Champion') : (leaders.length > 1 ? 'Tied for the lead' : 'Leading the way')}</div>
-    <div class="hof-winners">${leaders.map(s => personBlock(s.playerId, `${s.points} points`)).join('')}</div>
-    ${final ? '' : `<div class="hof-note">The crown is official once Week ${FINAL_WEEK} results are in.</div>`}
-  </div>`;
-}
-
-function personBlock(playerId, stat) {
-  const p = playersById[playerId];
-  return `<div class="hof-one">
-    <span class="trophy" aria-hidden="true">🏆</span>
-    ${playerBadgeImgTag(p, 64)}
-    <div class="hof-name">${escapeHtml(p ? p.name : '?')}</div>
-    ${p && p.kidName ? `<div class="hof-kid">${escapeHtml(p.kidName)}</div>` : ''}
-    <div class="hof-stat">${escapeHtml(stat)}</div>
-  </div>`;
+/** Badge for an archived name: uses the player's current badge if they're still in the league. */
+function badgeFor(playerId, size) {
+  return playerBadgeImgTag(playersById[playerId] || { name: '' }, size);
 }
 
 // ---------- mini comps (Harvest Bowl format) ----------
@@ -277,24 +284,18 @@ function scoreMiniComp(ev) {
   return { winners, total: rows.length };
 }
 
-function renderMinis() {
-  const el = document.getElementById('miniArea');
-  if (!events.length) { el.innerHTML = ''; return; }
-  const cards = events.map(ev => {
+function miniEmoji(name) {
+  return /harvest|turkey/i.test(name) ? '🦃' : /stocking|christmas/i.test(name) ? '🎄' : '🏅';
+}
+function buildMinis() {
+  return events.map(ev => {
     const name = ev.name || 'Mini comp';
-    const emoji = /harvest/i.test(name) ? '🦃' : /turkey/i.test(name) ? '🦃' : /stocking|christmas/i.test(name) ? '🎄' : '🏅';
     const result = scoreMiniComp(ev);
-    if (!result) {
-      return `<div class="hof-mini pending"><div class="mini-emoji">${emoji}</div><div class="mini-name">${escapeHtml(name)}</div>
-        <div class="mini-sub">Still being played. The champion appears once every result is in.</div></div>`;
-    }
-    const names = result.winners.map(r => escapeHtml(r.p.playerName)).join(' &amp; ') || 'No entries';
-    const r0 = result.winners[0];
-    return `<div class="hof-mini"><div class="mini-emoji">${emoji}</div><div class="mini-name">${escapeHtml(name)}</div>
-      <div class="mini-winner">🏆 ${names}</div>
-      ${r0 ? `<div class="mini-sub">${r0.points} of 7 points · ${result.winners.length > 1 ? 'Co-champions' : 'Champion'} of ${plural(result.total, 'player')}</div>` : ''}</div>`;
-  }).join('');
-  el.innerHTML = `<h2 class="section-title">🏅 Mini Comp Champions</h2><div class="hof-minis">${cards}</div>`;
+    if (!result) return { name, emoji: miniEmoji(name), final: false };
+    return { name, emoji: miniEmoji(name), final: true, total: result.total,
+      points: result.winners[0] ? result.winners[0].points : 0,
+      winners: result.winners.map(r => ({ playerId: r.p.playerId, name: r.p.playerName })) };
+  });
 }
 
 // ---------- season stats for the fun awards ----------
@@ -429,42 +430,186 @@ function assignAwards(awards, data) {
     if (!a.ranked.length) return;
     const pick = a.ranked.find(x => (won[x.id] || 0) < cap) || a.ranked[0];
     a.winner = pick;
-    a.bumped = a.ranked[0] !== pick ? a.ranked[0] : null;
     won[pick.id] = (won[pick.id] || 0) + 1;
   });
   return cap;
 }
 
-function renderAwards() {
+// ---------- the season summary (used live, for the archive, and to redraw past seasons) ----------
+function personInfo(id) {
+  const p = playersById[id];
+  return { playerId: id, name: p ? p.name : '?', kidName: (p && p.kidName) || '' };
+}
+
+function buildSnapshot(standings) {
   const data = buildSeasonData();
   const awards = buildAwards(data);
   const cap = assignAwards(awards, data);
+  const scored = standings.filter(s => s.points > 0);
+  const top = scored.length ? scored[0].points : 0;
 
-  document.getElementById('awardArea').innerHTML = `
-    <h2 class="section-title">🍦 The Fun Awards</h2>
-    <p class="muted" style="margin-top:-6px;">Each kid can win up to ${plural(cap, 'award')}, so the prizes get shared around. Ties go to whoever is higher in the standings.</p>
-    <div class="hof-awards">${awards.map(a => {
-      const w = a.winner, p = w && playersById[w.id];
-      return `<div class="hof-award">
-        <div class="hof-award-head"><span class="hof-award-emoji" aria-hidden="true">${a.emoji}</span><span class="hof-award-title">${escapeHtml(a.title)}</span></div>
-        <div class="hof-award-desc">${escapeHtml(a.desc)}</div>
-        ${w ? `<div class="hof-award-win">${playerBadgeImgTag(p, 36)}<div><strong>${escapeHtml(p.name)}</strong>${p.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(p.kidName)}</span>` : ''}<div class="why">${escapeHtml(w.r.why)}</div></div></div>`
-            : `<div class="hof-award-empty">Up for grabs. Nobody has earned this one yet.</div>`}
+  const recap = standings.map((s, i) => {
+    const e = data[s.playerId] || { picks: [], teams: {} };
+    const decided = e.picks.filter(r => r.decided);
+    const topTeams = Object.entries(e.teams).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([team, n]) => ({ team, n }));
+    const cats = CATEGORIES.map(c => ({ c, n: categoryCount(e, c) })).sort((x, y) => y.n - x.n);
+    return { ...personInfo(s.playerId), rank: 1 + standings.filter(o => o.points > s.points).length, points: s.points,
+      won: decided.filter(r => r.won).length, decided: decided.length, topTeams,
+      favCategory: cats[0] && cats[0].n ? `${cats[0].c.emoji} ${cats[0].c.name}` : '' };
+  });
+
+  return {
+    year: seasonYear,
+    final: seasonIsFinal(),
+    champions: scored.filter(s => s.points === top).map(s => ({ ...personInfo(s.playerId), points: s.points })),
+    minis: buildMinis(),
+    cap,
+    awards: awards.map(a => ({ emoji: a.emoji, title: a.title, desc: a.desc,
+      winner: a.winner ? { ...personInfo(a.winner.id), why: a.winner.r.why } : null })),
+    kings: CATEGORIES.map(cat => {
+      const ranked = players.map(p => ({ id: p.id, n: categoryCount(data[p.id], cat) })).filter(x => x.n > 0)
+        .sort((x, y) => y.n - x.n || (standingRank[x.id] || 999) - (standingRank[y.id] || 999));
+      return { emoji: cat.emoji, category: cat.name, winner: ranked[0] ? { ...personInfo(ranked[0].id), n: ranked[0].n } : null };
+    }),
+    standings: recap
+  };
+}
+
+function champBlock(c) {
+  return `<div class="hof-one">
+    <span class="trophy" aria-hidden="true">🏆</span>
+    ${badgeFor(c.playerId, 64)}
+    <div class="hof-name">${escapeHtml(c.name)}</div>
+    ${c.kidName ? `<div class="hof-kid">${escapeHtml(c.kidName)}</div>` : ''}
+    <div class="hof-stat">${c.points} points</div>
+  </div>`;
+}
+
+/** Draws a season summary. archived = a past season (always shown as final, plus the full standings recap). */
+function renderSnapshot(snap, archived) {
+  const final = archived || snap.final;
+  const many = snap.champions.length > 1;
+  const champ = !snap.champions.length
+    ? `<div class="card" style="text-align:center;">No results yet. The champion shows up here once games are decided.</div>`
+    : `<div class="hof-champ">
+        <div class="hof-kicker">${final ? `${snap.year} season champion` : `${snap.year} season so far`}</div>
+        <div class="hof-champ-title">${final ? (many ? 'Sundae Co-Champions' : 'Sundae Champion') : (many ? 'Tied for the lead' : 'Leading the way')}</div>
+        <div class="hof-winners">${snap.champions.map(champBlock).join('')}</div>
+        ${final ? '' : `<div class="hof-note">The crown is official once Week ${FINAL_WEEK} results are in.</div>`}
       </div>`;
-    }).join('')}</div>`;
 
-  // Category Kings: just for fun, doesn't count toward anyone's award share.
-  const kings = CATEGORIES.map(cat => {
-    const ranked = players.map(p => ({ id: p.id, n: categoryCount(data[p.id], cat) })).filter(x => x.n > 0)
-      .sort((a, b) => b.n - a.n || (standingRank[a.id] || 999) - (standingRank[b.id] || 999));
-    const top = ranked[0];
-    return `<div class="hof-king">${cat.emoji} <b>${escapeHtml(cat.name)}</b>
-      <span>${top ? `${escapeHtml(playersById[top.id].name)}: ${plural(top.n, 'pick')}` : 'Nobody yet'}</span></div>`;
-  }).join('');
-  document.getElementById('kingsArea').innerHTML = `
-    <h2 class="section-title" style="margin-top:24px;">👑 Category Kings</h2>
-    <p class="muted" style="margin-top:-6px;">Who picked each draft-kit category the most. Just for bragging rights.</p>
-    <div class="hof-kings">${kings}</div>`;
+  const minis = !snap.minis.length ? '' : `<h2 class="section-title">🏅 Mini Comp Champions</h2><div class="hof-minis">${snap.minis.map(m => !m.final
+    ? `<div class="hof-mini pending"><div class="mini-emoji">${m.emoji}</div><div class="mini-name">${escapeHtml(m.name)}</div>
+        <div class="mini-sub">Still being played. The champion appears once every result is in.</div></div>`
+    : `<div class="hof-mini"><div class="mini-emoji">${m.emoji}</div><div class="mini-name">${escapeHtml(m.name)}</div>
+        <div class="mini-winner">🏆 ${m.winners.map(w => escapeHtml(w.name)).join(' &amp; ') || 'No entries'}</div>
+        ${m.winners.length ? `<div class="mini-sub">${m.points} of 7 points · ${m.winners.length > 1 ? 'Co-champions' : 'Champion'} of ${plural(m.total, 'player')}</div>` : ''}</div>`).join('')}</div>`;
+
+  const awards = `<h2 class="section-title">🍦 The Fun Awards</h2>
+    ${archived ? '' : `<p class="muted" style="margin-top:-6px;">Each kid can win up to ${plural(snap.cap, 'award')}, so the prizes get shared around. Ties go to whoever is higher in the standings.</p>`}
+    <div class="hof-awards">${snap.awards.map(a => `<div class="hof-award">
+      <div class="hof-award-head"><span class="hof-award-emoji" aria-hidden="true">${a.emoji}</span><span class="hof-award-title">${escapeHtml(a.title)}</span></div>
+      <div class="hof-award-desc">${escapeHtml(a.desc)}</div>
+      ${a.winner ? `<div class="hof-award-win">${badgeFor(a.winner.playerId, 36)}<div><strong>${escapeHtml(a.winner.name)}</strong>${a.winner.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(a.winner.kidName)}</span>` : ''}<div class="why">${escapeHtml(a.winner.why)}</div></div></div>`
+                 : `<div class="hof-award-empty">${archived ? 'Nobody earned this one.' : 'Up for grabs. Nobody has earned this one yet.'}</div>`}
+    </div>`).join('')}</div>`;
+
+  const kings = `<h2 class="section-title" style="margin-top:24px;">👑 Category Kings</h2>
+    ${archived ? '' : `<p class="muted" style="margin-top:-6px;">Who picked each draft-kit category the most. Just for bragging rights.</p>`}
+    <div class="hof-kings">${snap.kings.map(k => `<div class="hof-king">${k.emoji} <b>${escapeHtml(k.category)}</b>
+      <span>${k.winner ? `${escapeHtml(k.winner.name)}: ${plural(k.winner.n, 'pick')}` : 'Nobody'}</span></div>`).join('')}</div>`;
+
+  const recap = !archived ? '' : `<h2 class="section-title" style="margin-top:24px;">📋 Final standings &amp; player recaps</h2>
+    <div class="hof-recap">${snap.standings.map(r => `<div class="hof-recap-row">
+      <div class="hof-recap-rank">${r.rank}</div>
+      <div class="hof-recap-main">
+        <strong>${escapeHtml(r.name)}</strong>${r.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(r.kidName)}</span>` : ''}
+        <div class="hof-recap-line">${r.won} of ${r.decided} correct${r.decided ? ` (${Math.round(r.won / r.decided * 100)}%)` : ''}${r.favCategory ? ` · Favourite category: ${escapeHtml(r.favCategory)}` : ''}</div>
+        ${r.topTeams.length ? `<div class="hof-recap-line">Most picked: ${r.topTeams.map(t => `${escapeHtml(t.team)} ×${t.n}`).join(', ')}</div>` : ''}
+      </div>
+      <div class="hof-recap-pts">${r.points}<small>PTS</small></div>
+    </div>`).join('')}</div>`;
+
+  return champ + minis + awards + kings + recap;
+}
+
+// ---------- past seasons ----------
+function renderPast() {
+  const el = document.getElementById('pastArea');
+  const past = pastSeasons;
+  if (!past.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<h2 class="section-title" style="margin-top:28px;">🏛️ Past Champions</h2>
+    <p class="muted" style="margin-top:-6px;">Tap a season to see its awards and every player's recap.</p>
+    ${past.map(snap => `<details class="hof-past">
+      <summary><span class="hof-past-year">${snap.year}</span>
+        <span class="hof-past-champ">🏆 ${snap.champions.map(c => escapeHtml(c.name)).join(' &amp; ') || 'No champion'}</span></summary>
+      <div class="hof-past-body">${renderSnapshot(snap, true)}</div>
+    </details>`).join('')}`;
+}
+
+// ---------- admin: archive + new season ----------
+function renderSeasonAdmin() {
+  const el = document.getElementById('adminArea');
+  const archived = pastSeasons.find(p => p.year === seasonYear);
+  el.innerHTML = `<div class="card hof-admin">
+    <h2 class="section-title" style="margin-top:0;">🔧 Admin: Season tools</h2>
+    <p class="muted" style="margin-top:0;">Only you can see this, because you're signed in as admin. Current season: <strong>${seasonYear}</strong>.</p>
+
+    <h3>1. Archive the ${seasonYear} season</h3>
+    <p>Saves a permanent copy of everything above (champion, mini comps, awards, Category Kings and every player's recap) into Past Champions. It never changes after that, even if players are removed later.</p>
+    ${archived ? `<div class="banner success">✅ ${seasonYear} is archived. Archiving again replaces that copy with the current numbers.</div>` : ''}
+    ${!liveSnapshot.final ? `<div class="banner warn">The season isn't finished yet (Week ${FINAL_WEEK} results aren't all in). You can still archive, but you'd normally wait.</div>` : ''}
+    <button id="archiveBtn">📦 ${archived ? 'Re-archive' : 'Archive'} the ${seasonYear} season</button>
+    <div id="archiveBanner" style="margin-top:10px;"></div>
+
+    <h3>2. Start the ${seasonYear + 1} season</h3>
+    <p>Clears this season's weeks, picks and mini comps so everyone starts at zero. <strong>Players, team names, PINs, badges and kids' names all stay.</strong> Then import next year's schedule on the Admin page like usual.</p>
+    ${archived ? '' : `<div class="banner warn">Archive ${seasonYear} first. This button unlocks once the archive is saved.</div>`}
+    <label for="newSeasonConfirm">Type <strong>NEW SEASON</strong> to confirm</label>
+    <input type="text" id="newSeasonConfirm" ${archived ? '' : 'disabled'} autocomplete="off" style="max-width:220px;">
+    <button id="newSeasonBtn" style="background:var(--pink-dark);" ${archived ? '' : 'disabled'}>🆕 Start the ${seasonYear + 1} season</button>
+    <div id="newSeasonBanner" style="margin-top:10px;"></div>
+  </div>`;
+
+  document.getElementById('archiveBtn').onclick = async () => {
+    const b = document.getElementById('archiveBanner');
+    if (archived && !confirm(`Replace the saved ${seasonYear} archive with the current numbers?`)) return;
+    try {
+      const snap = { ...liveSnapshot, final: true, archivedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      await db.collection('seasons').doc(String(seasonYear)).set(snap);
+      const fresh = await db.collection('seasons').get();
+      pastSeasons = fresh.docs.map(d => d.data()).sort((x, y) => y.year - x.year);
+      renderPast(); renderSeasonAdmin();
+      document.getElementById('archiveBanner').innerHTML = `<div class="banner success">🏛️ ${seasonYear} is saved in Past Champions.</div>`;
+    } catch (e) { console.error(e); b.innerHTML = `<div class="banner error">Couldn't save. Did you publish the Firestore rules with the "seasons" section?</div>`; }
+  };
+
+  document.getElementById('newSeasonBtn').onclick = async () => {
+    const b = document.getElementById('newSeasonBanner');
+    if (document.getElementById('newSeasonConfirm').value.trim().toUpperCase() !== 'NEW SEASON') {
+      b.innerHTML = `<div class="banner error">Type NEW SEASON in the box to confirm.</div>`; return;
+    }
+    if (!confirm(`Start the ${seasonYear + 1} season? This clears all ${seasonYear} weeks, picks and mini comps. Players and PINs stay. This can't be undone.`)) return;
+    const btn = document.getElementById('newSeasonBtn');
+    btn.disabled = true; btn.textContent = 'Clearing…';
+    try {
+      for (const name of ['picks', 'eventPicks', 'events', 'weeks']) {
+        const snap = await db.collection(name).get();
+        for (let i = 0; i < snap.docs.length; i += 400) {
+          const batch = db.batch();
+          snap.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+      await db.collection('meta').doc('season').set({ year: seasonYear + 1 });
+      b.innerHTML = `<div class="banner success">🎉 Welcome to the ${seasonYear + 1} season! Now import the new schedule on the Admin page. Reloading…</div>`;
+      setTimeout(() => location.reload(), 2500);
+    } catch (e) {
+      console.error(e);
+      b.innerHTML = `<div class="banner error">Something went wrong partway through: ${escapeHtml(e.message)}. Nothing from the archive was touched. Try again, or send me this message.</div>`;
+      btn.disabled = false; btn.textContent = `🆕 Start the ${seasonYear + 1} season`;
+    }
+  };
 }
 
 init().catch(err => {

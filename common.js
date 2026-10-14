@@ -103,6 +103,17 @@ const UnlockedPlayers = {
   lock(id) { localStorage.removeItem(this.key(id)); }
 };
 
+/** SEASON-YEAR-V1: which season the site is on. Set by "Start new season" on the Hall of Fame;
+ * until then it's worked out from today's date (Jan/Feb still belong to last fall's season). */
+async function getSeasonYear() {
+  try {
+    const doc = await db.collection('meta').doc('season').get();
+    if (doc.exists && doc.data().year) return doc.data().year;
+  } catch (e) { /* rules not published yet: fall back to the date */ }
+  const now = new Date();
+  return now.getMonth() <= 1 ? now.getFullYear() - 1 : now.getFullYear();
+}
+
 async function getWeeks() {
   const snap = await db.collection('weeks').orderBy('weekNumber').get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));

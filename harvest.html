@@ -244,8 +244,8 @@
 <script src="config.js"></script>
 <script src="common.js"></script>
 <script>
-// HARVEST-PAGE-V8  (search View Source for this to confirm the live version)
-const EVENT_ID = 'harvest2026';
+// HARVEST-PAGE-V9  (search View Source for this to confirm the live version)
+let EVENT_ID = 'harvest2026';   // becomes harvest<season year> on load, e.g. harvest2027 next fall
 
 let players = [], playersById = {}, weeks = [];
 let event = null;        // events/harvest2026
@@ -342,6 +342,7 @@ function buildBoard() {
 // ---------- page ----------
 async function init() {
   await ensureSignedIn();
+  EVENT_ID = 'harvest' + await getSeasonYear();
   const user = auth.currentUser;
   isAdminUser = !!(user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email));
 
@@ -656,7 +657,7 @@ function championBox(rows, allFinal, res) {
   const tiebreakUsed = second && second.points === champs[0].points;
   const one = champs.length === 1;
   return `<div class="hb-champ-box" role="status">
-    <div class="hb-champ-kicker">Thanksgiving ${new Date().getFullYear()}</div>
+    <div class="hb-champ-kicker">Thanksgiving ${EVENT_ID.replace('harvest', '')}</div>
     <div class="hb-champ-title">${one ? 'Harvest Champion' : 'Harvest Co-Champions'}</div>
     <div class="hb-champ-winners">
       ${champs.map(r => {
