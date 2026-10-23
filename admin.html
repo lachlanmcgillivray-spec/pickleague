@@ -12,6 +12,54 @@
   .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
   .tie-note { color:#5B2EA6; font-weight:600; }
 </style>
+<style>
+  /* ADMIN-TABS-V1 · ESPN-FILL-V1 */
+  .adm-tabs { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 18px; position:sticky; top:0; z-index:5; padding:10px 0; background:#DCEEDA; }
+  .adm-tab { background:white; color:var(--navy); border:2px solid var(--line); border-radius:999px; padding:9px 14px; font-family:var(--font-fun); font-weight:600; font-size:14px; box-shadow:none; }
+  .adm-tab:hover { background:#F4F1FA; }
+  .adm-tab.on { background:var(--navy); color:white; border-color:var(--navy); }
+  .adm-tab:focus-visible { outline:3px solid var(--pink); outline-offset:2px; }
+  .adm-panel { display:none; }
+  .adm-panel.on { display:block; }
+  .adm-hint { font-size:14px; color:var(--ink-soft); margin:0 0 14px; }
+
+  .adm-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; margin-bottom:16px; }
+  .adm-stat { background:white; border-radius:14px; padding:12px 14px; box-shadow:var(--shadow); }
+  .adm-stat .n { font-family:var(--font-display); font-size:26px; color:var(--navy); line-height:1.1; }
+  .adm-stat .l { font-size:12px; color:var(--ink-soft); }
+  .adm-stat.good .n { color:#1E7A44; } .adm-stat.warn .n { color:#B4541A; }
+
+  .adm-form label { display:block; font-size:13px; font-weight:600; margin:12px 0 4px; color:var(--navy); }
+  .adm-form select, .adm-form input[type="number"], .adm-form input[type="datetime-local"], .adm-form input[type="text"] { width:100%; }
+  .adm-form input[type="number"], .adm-form input[type="datetime-local"] { font-family:var(--font-body); font-size:15px; padding:10px 12px; border:2px solid var(--line); border-radius:10px; background:white; color:var(--ink); }
+  .adm-row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .adm-row3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+  .adm-actions { margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+  .adm-card-title { font-family:var(--font-fun); font-weight:700; font-size:18px; color:var(--navy); margin:0 0 4px; }
+
+  .adm-entries { width:100%; border-collapse:collapse; font-size:13px; }
+  .adm-entries th { text-align:left; font-size:12px; color:var(--ink-soft); font-weight:600; padding:6px; border-bottom:2px solid var(--line); }
+  .adm-entries td { padding:8px 6px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  .adm-entries .rk { font-family:var(--font-display); font-size:18px; color:var(--pink-dark); text-align:center; }
+  .adm-entries .pts { font-family:var(--font-display); font-size:18px; color:var(--navy); text-align:right; }
+  .adm-entries .ok { color:#1E7A44; font-weight:600; } .adm-entries .no { color:#A33; text-decoration:line-through; } .adm-entries .tie { color:#5B2EA6; font-weight:600; }
+  .adm-entries button { padding:4px 10px; font-size:12px; }
+  .adm-scroll { overflow-x:auto; }
+
+  .adm-past { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .adm-past:last-child { border-bottom:none; }
+  .adm-past b { font-family:var(--font-display); font-size:20px; color:var(--navy); min-width:56px; }
+  details.adm-preview { background:#FBF8F1; border-radius:14px; padding:10px 14px; margin-top:10px; }
+  details.adm-preview summary { cursor:pointer; font-weight:600; color:var(--navy); }
+
+  @media (max-width:560px) {
+    .adm-row2, .adm-row3 { grid-template-columns:1fr; }
+    .adm-tabs { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .adm-tabs::-webkit-scrollbar { display:none; }
+    .adm-tab { font-size:13px; padding:8px 11px; white-space:nowrap; flex-shrink:0; }
+    .adm-stat .n { font-size:21px; }
+  }
+</style>
 </head>
 <body>
 
@@ -111,6 +159,16 @@
       </div>
     </div>
 
+    <nav class="adm-tabs" role="tablist" aria-label="Admin sections">
+      <button class="adm-tab" role="tab" data-tab="weeks">🏈 Weeks &amp; Results</button>
+      <button class="adm-tab" role="tab" data-tab="picks">📋 Team Picks</button>
+      <button class="adm-tab" role="tab" data-tab="players">👥 Players</button>
+      <button class="adm-tab" role="tab" data-tab="minis">🦃 Mini Comps</button>
+      <button class="adm-tab" role="tab" data-tab="season">🏛️ Season Wrap-Up</button>
+    </nav>
+
+    <section class="adm-panel" data-panel="weeks" role="tabpanel">
+      <p class="adm-hint">Set up each week's games and enter the winners. To enter results, click <strong>Edit</strong> on a week, pick each game's winner (or 🤝 Tie), then <strong>Save week</strong>.</p>
     <h2 class="section-title">Weeks</h2>
     <div id="weeksList"></div>
 
@@ -154,7 +212,11 @@ Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
       </div>
 
       <div id="gameRows"></div>
-      <button class="secondary" id="addGameBtn" type="button">+ Add matchup</button>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button class="secondary" id="addGameBtn" type="button">+ Add matchup</button>
+        <button class="secondary" id="espnFillBtn" type="button" title="Fills in blank winners for games that are final on ESPN">📡 Fill winners from ESPN</button>
+      </div>
+      <div id="espnFillBanner"></div>
 
       <div style="margin-top:16px; display:flex; gap:10px;">
         <button id="saveWeekBtn" class="amber">Save week</button>
@@ -164,9 +226,9 @@ Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
       <div id="editorBanner"></div>
     </div>
 
-    <h2 class="section-title">Roster</h2>
-    <div class="card" id="rosterCard"></div>
+    </section>
 
+    <section class="adm-panel" data-panel="picks" role="tabpanel">
     <h2 class="section-title">📋 Team picks</h2>
     <div class="card">
       <p class="muted" style="margin-top:0;">Admins can see everyone's picks anytime, locked or not.</p>
@@ -175,6 +237,21 @@ Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
       </div>
       <div id="adminPicksArea"></div>
     </div>
+    </section>
+
+    <section class="adm-panel" data-panel="players" role="tabpanel">
+    <h2 class="section-title">Roster</h2>
+    <div class="card" id="rosterCard"></div>
+
+    </section>
+
+    <section class="adm-panel" data-panel="minis" role="tabpanel">
+      <div id="minisArea"><p class="muted">Loading…</p></div>
+    </section>
+
+    <section class="adm-panel" data-panel="season" role="tabpanel">
+      <div id="seasonArea"><p class="muted">Loading…</p></div>
+    </section>
   </div>
 
 </main>
@@ -186,6 +263,7 @@ Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
+<script src="hof.js?v=1"></script>
 <script>
 let editingWeekId = null; // null = creating a new week
 let gameRows = []; // { id, away, home, kickoff, winner }
@@ -206,11 +284,13 @@ async function init() {
       loadWeeks();
       loadRoster();
       loadAdminPicksViewer();
+      showTab(tabFromHash());
     }
   });
 
   document.getElementById('loginBtn').addEventListener('click', onLogin);
   document.getElementById('logoutBtn').addEventListener('click', () => auth.signOut());
+  document.getElementById('espnFillBtn').addEventListener('click', onEspnFill);
   document.getElementById('addGameBtn').addEventListener('click', () => {
     gameRows.push({ id: newGameId(), away: '', home: '', kickoffAtLocal: '', winner: '' });
     renderGameRows();
@@ -379,6 +459,407 @@ async function onBulkImport() {
     btn.disabled = false;
     btn.textContent = 'Import schedule';
   }
+}
+
+// ============================================================
+// ADMIN-TABS-V1: tabs, plus the Mini Comps and Season Wrap-Up tabs
+// ============================================================
+const ADMIN_TABS = ['weeks', 'picks', 'players', 'minis', 'season'];
+
+function tabFromHash() {
+  const t = (location.hash || '').replace('#', '');
+  return ADMIN_TABS.includes(t) ? t : 'weeks';
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.adm-tab').forEach(b => {
+    const on = b.dataset.tab === tab;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', on);
+  });
+  document.querySelectorAll('.adm-panel').forEach(p => p.classList.toggle('on', p.dataset.panel === tab));
+  const onBtn = document.querySelector(`.adm-tab[data-tab="${tab}"]`);
+  if (onBtn && onBtn.scrollIntoView) onBtn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  if (location.hash !== '#' + tab) history.replaceState(null, '', '#' + tab);
+  // These two always reload when opened, so they reflect any week/result changes made in other tabs.
+  if (tab === 'minis') loadMinisTab();
+  if (tab === 'season') loadSeasonTab();
+}
+
+document.querySelectorAll('.adm-tab').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+window.addEventListener('hashchange', () => showTab(tabFromHash()));
+
+function admToDate(ts) { return ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : null; }
+function admLocalInput(d) {
+  if (!d) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function admStat(n, label, cls) { return `<div class="adm-stat ${cls || ''}"><div class="n">${n}</div><div class="l">${label}</div></div>`; }
+
+// ---------------- Mini Comps ----------------
+let mcSelectedId = null;
+
+async function loadMinisTab() {
+  const area = document.getElementById('minisArea');
+  try {
+    await loadHofData();   // players, weeks, events, eventPicks, seasonYear (from hof.js)
+  } catch (e) {
+    console.error(e);
+    area.innerHTML = `<div class="banner error">Couldn't load mini comps. If you haven't yet, publish the Firestore rules with the events and eventPicks sections.</div>`;
+    return;
+  }
+  const harvestId = 'harvest' + seasonYear;
+  const list = [...events];
+  if (!list.some(e => e.id === harvestId)) list.unshift({ id: harvestId, name: 'Harvest Bowl', _new: true });
+  list.sort((a, b) => (a.id === harvestId ? -1 : b.id === harvestId ? 1 : a.id.localeCompare(b.id)));
+  if (!mcSelectedId || !list.some(e => e.id === mcSelectedId)) mcSelectedId = list[0].id;
+  renderMiniComp(list);
+}
+
+function mcLocked(ev) {
+  if (!ev) return false;
+  if (ev.locked) return true;
+  const d = admToDate(ev.lockAt);
+  return !!d && d.getTime() <= Date.now();
+}
+function mcTeam(g, side) { return !g ? '' : side === 'away' ? g.away : side === 'home' ? g.home : ''; }
+function mcGameLabel(g) { return `${g.away} @ ${g.home}`; }
+
+function renderMiniComp(list) {
+  const area = document.getElementById('minisArea');
+  const ev = list.find(e => e.id === mcSelectedId);
+  const isNew = !!ev._new;
+  const year = (ev.id.match(/\d{4}$/) || [seasonYear])[0];
+  const entries = eventPicks.filter(p => p.eventId === ev.id);
+  const games = ev.games || [];
+  const ready = games.length === 3 && ev.drumstickId;
+  const res = ev.results || {};
+  const dg = games.find(g => g.id === ev.drumstickId);
+  const resultsIn = games.filter(g => (res.winners || {})[g.id]).length + (res.coinToss ? 1 : 0) + (res.firstScore ? 1 : 0) + (typeof res.totalPoints === 'number' ? 1 : 0);
+  const rows = ready ? scoreMiniEntries(ev, entries) : [];
+  const final = miniCompFinal(ev);
+  const locked = mcLocked(ev);
+  const closeAt = admToDate(ev.lockAt);
+
+  // Setup choices
+  const weekId = ev.weekId || (weeks.find(w => !isWeekLocked(w)) || weeks[weeks.length - 1] || {}).id || '';
+  const week = weeks.find(w => w.id === weekId);
+  const wkGames = (week && week.games) || [];
+  const regular = games.filter(g => g.id !== ev.drumstickId);
+  const opts = sel => `<option value="">Choose a game…</option>` +
+    wkGames.map(g => `<option value="${g.id}" ${sel === g.id ? 'selected' : ''}>${escapeHtml(mcGameLabel(g))}</option>`).join('');
+  const sideOpts = (g, cur, tie) => !g ? '' : `<option value="">Not decided</option>
+      <option value="away" ${cur === 'away' ? 'selected' : ''}>${escapeHtml(g.away)}</option>
+      <option value="home" ${cur === 'home' ? 'selected' : ''}>${escapeHtml(g.home)}</option>
+      ${tie ? `<option value="tie" ${cur === 'tie' ? 'selected' : ''}>🤝 Tie (both teams win)</option>` : ''}`;
+
+  const missing = players.filter(p => !entries.some(e => e.playerId === p.id));
+  const leader = rows.length && resultsIn ? rows.filter(r => r.rank === 1).map(r => r.p.playerName).join(' & ') : '—';
+
+  const cell = (state, text) => `<span class="${state}">${escapeHtml(text || '—')}</span>`;
+  const stateFor = (actual, mine) => !actual ? '' : (actual === 'tie' && mine) ? 'tie' : mine === actual ? 'ok' : 'no';
+
+  area.innerHTML = `
+    ${list.length > 1 ? `<div class="player-select-row"><select id="mcPick">${list.map(e =>
+      `<option value="${e.id}" ${e.id === ev.id ? 'selected' : ''}>${escapeHtml(e.name || 'Mini comp')} ${(e.id.match(/\d{4}$/) || [''])[0]}${e._new ? ' (not set up yet)' : ''}</option>`).join('')}</select></div>` : ''}
+    <h2 class="section-title" style="margin-top:0;">🦃 ${escapeHtml(ev.name || 'Harvest Bowl')} ${year}</h2>
+    <p class="adm-hint">Kids play on the <a href="harvest.html" target="_blank" rel="noopener">Harvest Bowl page</a>. Everything you set here shows up there right away.</p>
+
+    <div class="adm-stats">
+      ${admStat(`${entries.length}<span style="font-size:15px;"> / ${players.length}</span>`, 'players entered')}
+      ${admStat(isNew || !ready ? 'Not set up' : locked ? 'Closed' : 'Open', closeAt ? `picks close ${closeAt.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'picks', isNew || !ready ? 'warn' : locked ? '' : 'good')}
+      ${admStat(`${resultsIn}<span style="font-size:15px;"> / 6</span>`, 'results entered', final ? 'good' : '')}
+      ${admStat(escapeHtml(leader), final ? '🏆 champion' : 'leading right now')}
+    </div>
+
+    <div class="card adm-form">
+      <div class="adm-card-title">1. Setup</div>
+      <p class="adm-hint" style="margin:0;">Pick the three games. The 🍗 Golden Drumstick game counts double, and the coin toss, first-score and Gobbler Guess questions use it too.</p>
+      <label for="mcWeek">Pull games from</label>
+      <select id="mcWeek">${weeks.map(w => `<option value="${w.id}" ${w.id === weekId ? 'selected' : ''}>${escapeHtml(w.label || 'Week ' + w.weekNumber)}</option>`).join('')}</select>
+      ${wkGames.length ? '' : `<div class="banner error" style="margin-top:8px;">That week has no games yet. Add them in the Weeks &amp; Results tab first.</div>`}
+      <div class="adm-row2">
+        <div><label for="mcG1">Question 1 game (1 pt)</label><select id="mcG1">${opts(regular[0] && regular[0].id)}</select></div>
+        <div><label for="mcG2">Question 2 game (1 pt)</label><select id="mcG2">${opts(regular[1] && regular[1].id)}</select></div>
+      </div>
+      <label for="mcGold">🍗 Golden Drumstick game (2 pts)</label>
+      <select id="mcGold">${opts(ev.drumstickId)}</select>
+      <label for="mcLock">Picks close at (usually the first featured game's kickoff)</label>
+      <input type="datetime-local" id="mcLock" value="${admLocalInput(closeAt)}">
+      <div class="adm-actions">
+        <button id="mcSaveSetup" class="amber">Save setup</button>
+        ${isNew ? '' : `<button id="mcToggleLock" class="${ev.locked ? 'secondary' : 'danger'}">${ev.locked ? '🔓 Reopen picks' : '🔒 Close picks now'}</button>`}
+      </div>
+      <div id="mcSetupBanner" style="margin-top:10px;"></div>
+    </div>
+
+    ${ready ? `<div class="card adm-form">
+      <div class="adm-card-title">2. Results</div>
+      <p class="adm-hint" style="margin:0;">Fill these in as games finish. Points update for everyone as soon as you save. The champion is crowned once all 6 are in.</p>
+      <div class="adm-row3">
+        ${games.map(g => `<div><label>${g.id === ev.drumstickId ? '🍗 ' : ''}${escapeHtml(mcGameLabel(g))}</label>
+          <select data-mc-win="${g.id}">${sideOpts(g, (res.winners || {})[g.id], true)}</select></div>`).join('')}
+      </div>
+      <div class="adm-row3">
+        <div><label for="mcToss">🪙 Coin toss winner</label><select id="mcToss">${sideOpts(dg, res.coinToss, false)}</select></div>
+        <div><label for="mcFirst">🥧 First to score</label><select id="mcFirst">${sideOpts(dg, res.firstScore, false)}</select></div>
+        <div><label for="mcTotal">🦃 Final total points</label><input type="number" id="mcTotal" min="0" max="150" value="${typeof res.totalPoints === 'number' ? res.totalPoints : ''}" placeholder="Blank until final"></div>
+      </div>
+      <div class="adm-actions"><button id="mcSaveResults" class="amber">Save results</button></div>
+      <div id="mcResBanner" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="adm-card-title">3. Entries &amp; live leaderboard</div>
+      ${rows.length ? `<div class="adm-scroll"><table class="adm-entries">
+        <thead><tr><th>#</th><th>Player</th>${games.map(g => `<th>${g.id === ev.drumstickId ? '🍗' : 'Q' + (regular.indexOf(g) + 1)}</th>`).join('')}<th>🪙</th><th>🥧</th><th>🦃 Guess</th><th style="text-align:right;">Pts</th><th></th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td class="rk">${resultsIn ? (r.rank === 1 ? '🦃' : r.rank) : ''}</td>
+          <td><strong>${escapeHtml(r.p.playerName)}</strong></td>
+          ${games.map(g => `<td>${cell(stateFor((res.winners || {})[g.id], (r.p.winners || {})[g.id]), mcTeam(g, (r.p.winners || {})[g.id]).split(' ').pop())}</td>`).join('')}
+          <td>${cell(stateFor(res.coinToss, r.p.coinToss), mcTeam(dg, r.p.coinToss).split(' ').pop())}</td>
+          <td>${cell(stateFor(res.firstScore, r.p.firstScore), mcTeam(dg, r.p.firstScore).split(' ').pop())}</td>
+          <td>${typeof r.p.totalGuess === 'number' ? r.p.totalGuess : '—'}${r.off !== null ? ` <span class="${r.closest ? 'ok' : 'muted'}">(${r.closest ? 'closest' : 'off ' + r.off})</span>` : ''}</td>
+          <td class="pts">${r.points}</td>
+          <td><button class="secondary" data-mc-remove="${escapeHtml(r.p.playerId)}" title="Remove this entry">✕</button></td>
+        </tr>`).join('')}</tbody></table></div>` : `<p class="muted">No entries yet.</p>`}
+      ${missing.length ? `<p class="muted" style="margin-bottom:0;">⏳ Haven't entered: ${missing.map(p => escapeHtml(p.name)).join(', ')}</p>` : ''}
+      <div id="mcEntryBanner" style="margin-top:8px;"></div>
+    </div>` : ''}`;
+
+  // ----- events -----
+  const pick = document.getElementById('mcPick');
+  if (pick) pick.onchange = () => { mcSelectedId = pick.value; renderMiniComp(list); };
+
+  document.getElementById('mcWeek').onchange = e => {
+    Object.assign(ev, { weekId: e.target.value, games: [], drumstickId: '' });
+    renderMiniComp(list);
+  };
+
+  ['mcG1', 'mcG2', 'mcGold'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+    const lockInput = document.getElementById('mcLock');
+    if (lockInput.value) return;
+    const ids = ['mcG1', 'mcG2', 'mcGold'].map(x => document.getElementById(x).value).filter(Boolean);
+    const kicks = wkGames.filter(g => ids.includes(g.id) && g.kickoffAt).map(g => admToDate(g.kickoffAt));
+    if (kicks.length) lockInput.value = admLocalInput(new Date(Math.min(...kicks.map(d => d.getTime()))));
+  }));
+
+  document.getElementById('mcSaveSetup').onclick = async () => {
+    const b = document.getElementById('mcSetupBanner');
+    const ids = ['mcG1', 'mcG2', 'mcGold'].map(x => document.getElementById(x).value);
+    if (ids.some(x => !x)) { b.innerHTML = `<div class="banner error">Choose all 3 games.</div>`; return; }
+    if (new Set(ids).size !== 3) { b.innerHTML = `<div class="banner error">Pick 3 different games.</div>`; return; }
+    const lockVal = document.getElementById('mcLock').value;
+    const newGames = ids.map(id => { const g = wkGames.find(x => x.id === id); return { id: g.id, away: g.away, home: g.home }; });
+    const sameGames = games.length === 3 && ids.every(id => games.some(g => g.id === id));
+    if (!sameGames && Object.keys(res).length && !confirm('Changing the games clears the results entered so far. Continue?')) return;
+    const data = {
+      name: ev.name || 'Harvest Bowl', weekId: document.getElementById('mcWeek').value,
+      games: newGames, drumstickId: ids[2],
+      lockAt: lockVal ? firebase.firestore.Timestamp.fromDate(new Date(lockVal)) : null,
+      locked: !!ev.locked,
+      results: sameGames ? res : {}
+    };
+    try {
+      await db.collection('events').doc(ev.id).set(data);
+      await loadMinisTab();
+      document.getElementById('mcSetupBanner').innerHTML = `<div class="banner success">Setup saved.</div>`;
+    } catch (e) { console.error(e); b.innerHTML = `<div class="banner error">Save failed. Check that the Firestore rules are published.</div>`; }
+  };
+
+  const tl = document.getElementById('mcToggleLock');
+  if (tl) tl.onclick = async () => {
+    await db.collection('events').doc(ev.id).update({ locked: !ev.locked });
+    await loadMinisTab();
+  };
+
+  const sr = document.getElementById('mcSaveResults');
+  if (sr) sr.onclick = async () => {
+    const winners = {};
+    document.querySelectorAll('[data-mc-win]').forEach(s => { if (s.value) winners[s.dataset.mcWin] = s.value; });
+    const totalRaw = document.getElementById('mcTotal').value;
+    const results = { winners, coinToss: document.getElementById('mcToss').value || null,
+      firstScore: document.getElementById('mcFirst').value || null,
+      totalPoints: totalRaw === '' ? null : parseInt(totalRaw, 10) };
+    try {
+      await db.collection('events').doc(ev.id).update({ results });
+      await loadMinisTab();
+      const done = miniCompFinal({ ...ev, results });
+      document.getElementById('mcResBanner').innerHTML = `<div class="banner success">Results saved.${done ? ' 🏆 All 6 are in, so the champion is crowned on the Harvest Bowl page and in the Hall of Fame.' : ''}</div>`;
+    } catch (e) { console.error(e); document.getElementById('mcResBanner').innerHTML = `<div class="banner error">Save failed.</div>`; }
+  };
+
+  area.querySelectorAll('[data-mc-remove]').forEach(btn => btn.addEventListener('click', async () => {
+    const r = rows.find(x => x.p.playerId === btn.dataset.mcRemove);
+    if (!confirm(`Remove ${r.p.playerName}'s ${ev.name || 'mini comp'} entry? This can't be undone.`)) return;
+    try {
+      await db.collection('eventPicks').doc(`${ev.id}_${r.p.playerId}`).delete();
+      await loadMinisTab();
+    } catch (e) { console.error(e); document.getElementById('mcEntryBanner').innerHTML = `<div class="banner error">Couldn't remove that entry.</div>`; }
+  }));
+}
+
+// ---------------- Season Wrap-Up ----------------
+async function loadSeasonTab() {
+  const area = document.getElementById('seasonArea');
+  let standings;
+  try { standings = await loadHofData(); }
+  catch (e) { console.error(e); area.innerHTML = `<div class="banner error">Couldn't load the season. Try refreshing.</div>`; return; }
+  const snap = buildSnapshot(standings);
+  const archived = pastSeasons.find(p => p.year === seasonYear);
+  const decidedWeeks = weeks.filter(w => (w.games || []).length && w.games.every(g => g.winner)).length;
+  const champ = snap.champions.map(c => c.name).join(' & ') || '—';
+  const minisDone = snap.minis.filter(m => m.final).length;
+
+  area.innerHTML = `
+    <h2 class="section-title" style="margin-top:0;">🏛️ ${seasonYear} Season Wrap-Up</h2>
+    <p class="adm-hint">Everything for closing out the season. Kids see the results on the <a href="halloffame.html" target="_blank" rel="noopener">I Scream Hall of Fame</a>.</p>
+
+    <div class="adm-stats">
+      ${admStat(`${decidedWeeks}<span style="font-size:15px;"> / ${FINAL_WEEK}</span>`, 'weeks with all results in', snap.final ? 'good' : '')}
+      ${admStat(escapeHtml(champ), snap.final ? '🏆 season champion' : 'leading right now')}
+      ${admStat(`${minisDone}<span style="font-size:15px;"> / ${snap.minis.length}</span>`, 'mini comps finished')}
+      ${admStat(archived ? 'Saved' : 'Not yet', `${seasonYear} archive`, archived ? 'good' : 'warn')}
+    </div>
+
+    <div class="card">
+      <div class="adm-card-title">What gets archived</div>
+      <p class="adm-hint" style="margin:0;">The champion, mini-comp winners, all 10 fun awards, Category Kings and every player's recap. This is exactly what's on the Hall of Fame right now.</p>
+      <details class="adm-preview"><summary>Preview the ${seasonYear} summary</summary>${renderSnapshot(snap, true)}</details>
+    </div>
+
+    <div class="card">
+      <div class="adm-card-title">1. Archive the ${seasonYear} season</div>
+      <p style="font-size:14px;">Saves a permanent copy into Past Champions on the Hall of Fame. It never changes after that, even if players are removed later.</p>
+      ${archived ? `<div class="banner success">✅ ${seasonYear} is archived. Archiving again replaces that copy with the current numbers.</div>` : ''}
+      ${!snap.final ? `<div class="banner warn">The season isn't finished yet (Week ${FINAL_WEEK} results aren't all in). You can still archive, but you'd normally wait.</div>` : ''}
+      <button id="swArchive" class="amber">📦 ${archived ? 'Re-archive' : 'Archive'} the ${seasonYear} season</button>
+      <div id="swArchiveBanner" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card adm-form">
+      <div class="adm-card-title">2. Start the ${seasonYear + 1} season</div>
+      <p style="font-size:14px;">Clears this season's weeks, picks and mini comps so everyone starts at zero. <strong>Players, team names, PINs, badges and kids' names all stay.</strong> Then import next year's schedule in the Weeks &amp; Results tab.</p>
+      ${archived ? '' : `<div class="banner warn">Archive ${seasonYear} first. This unlocks once the archive is saved.</div>`}
+      <label for="swConfirm">Type <strong>NEW SEASON</strong> to confirm</label>
+      <input type="text" id="swConfirm" ${archived ? '' : 'disabled'} autocomplete="off" style="max-width:220px;">
+      <div class="adm-actions"><button id="swNew" class="danger" ${archived ? '' : 'disabled'}>🆕 Start the ${seasonYear + 1} season</button></div>
+      <div id="swNewBanner" style="margin-top:10px;"></div>
+    </div>
+
+    ${pastSeasons.length ? `<div class="card">
+      <div class="adm-card-title">Saved seasons</div>
+      ${pastSeasons.map(p => `<div class="adm-past"><b>${p.year}</b><span>🏆 ${p.champions.map(c => escapeHtml(c.name)).join(' &amp; ') || 'No champion'}</span>
+        <span class="muted" style="margin-left:auto; font-size:12px;">${plural(p.standings.length, 'player')}</span></div>`).join('')}
+    </div>` : ''}`;
+
+  document.getElementById('swArchive').onclick = async () => {
+    const b = document.getElementById('swArchiveBanner');
+    if (archived && !confirm(`Replace the saved ${seasonYear} archive with the current numbers?`)) return;
+    try {
+      await db.collection('seasons').doc(String(seasonYear)).set({ ...snap, final: true, archivedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      await loadSeasonTab();
+      document.getElementById('swArchiveBanner').innerHTML = `<div class="banner success">🏛️ ${seasonYear} is saved in Past Champions.</div>`;
+    } catch (e) { console.error(e); b.innerHTML = `<div class="banner error">Couldn't save. Check the Firestore rules include the "seasons" section.</div>`; }
+  };
+
+  document.getElementById('swNew').onclick = async () => {
+    const b = document.getElementById('swNewBanner');
+    if (document.getElementById('swConfirm').value.trim().toUpperCase() !== 'NEW SEASON') {
+      b.innerHTML = `<div class="banner error">Type NEW SEASON in the box to confirm.</div>`; return;
+    }
+    if (!confirm(`Start the ${seasonYear + 1} season? This clears all ${seasonYear} weeks, picks and mini comps. Players and PINs stay. This can't be undone.`)) return;
+    const btn = document.getElementById('swNew');
+    btn.disabled = true; btn.textContent = 'Clearing…';
+    try {
+      for (const name of ['picks', 'eventPicks', 'events', 'weeks']) {
+        const s = await db.collection(name).get();
+        for (let i = 0; i < s.docs.length; i += 400) {
+          const batch = db.batch();
+          s.docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+      await db.collection('meta').doc('season').set({ year: seasonYear + 1 });
+      b.innerHTML = `<div class="banner success">🎉 Welcome to the ${seasonYear + 1} season! Next, paste the new schedule in the Weeks &amp; Results tab.</div>`;
+      await loadWeeks(); loadAdminPicksViewer();
+      setTimeout(() => showTab('weeks'), 2500);
+    } catch (e) {
+      console.error(e);
+      b.innerHTML = `<div class="banner error">Something went wrong partway through: ${escapeHtml(e.message)}. The archive wasn't touched. Try again, or send me this message.</div>`;
+      btn.disabled = false; btn.textContent = `🆕 Start the ${seasonYear + 1} season`;
+    }
+  };
+}
+
+// ---------- ESPN-FILL-V1: backup for the automatic score updater ----------
+function espnTeamKey(name) {
+  const w = String(name || '').trim().split(/\s+/);
+  return w[w.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+function espnYmd(d) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' })
+    .format(d).replace(/-/g, '');
+}
+
+/** Fills in any blank winners in the week being edited, from ESPN's final scores. Nothing is saved
+ * until you click Save week, so you can check them first. */
+async function onEspnFill() {
+  const banner = document.getElementById('espnFillBanner');
+  const btn = document.getElementById('espnFillBtn');
+  const todo = gameRows.filter(g => g.away && g.home && !g.winner);
+  if (!todo.length) { banner.innerHTML = `<div class="banner info">Every game in this week already has a winner.</div>`; return; }
+
+  // Look up each game's kickoff day, or the last 10 days if kickoffs aren't set.
+  const days = new Set();
+  todo.forEach(g => { if (g.kickoffAtLocal) days.add(espnYmd(new Date(g.kickoffAtLocal))); });
+  if (!days.size || todo.some(g => !g.kickoffAtLocal)) {
+    for (let i = 0; i <= 10; i++) days.add(espnYmd(new Date(Date.now() - i * 86400000)));
+  }
+
+  btn.disabled = true; btn.textContent = '📡 Checking ESPN…';
+  const finals = [];
+  try {
+    for (const day of days) {
+      const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${day}`);
+      if (!res.ok) continue;
+      const data = await res.json();
+      (data.events || []).forEach(ev => {
+        const c = (ev.competitions || [])[0];
+        if (!c || !c.status || !c.status.type || !c.status.type.completed) return;
+        const a = c.competitors.find(x => x.homeAway === 'away'), h = c.competitors.find(x => x.homeAway === 'home');
+        if (!a || !h) return;
+        const as = Number(a.score), hs = Number(h.score);
+        finals.push({ a: espnTeamKey(a.team.name), h: espnTeamKey(h.team.name), as, hs, kick: new Date(ev.date).getTime(),
+          side: a.winner ? 'away' : h.winner ? 'home' : as === hs ? 'tie' : as > hs ? 'away' : 'home' });
+      });
+    }
+  } catch (e) {
+    console.error(e);
+    banner.innerHTML = `<div class="banner error">Couldn't reach ESPN from this browser. The automatic updater on GitHub still works, or enter the winners by hand.</div>`;
+    btn.disabled = false; btn.textContent = '📡 Fill winners from ESPN';
+    return;
+  }
+
+  let filled = 0;
+  todo.forEach(g => {
+    const a = espnTeamKey(g.away), h = espnTeamKey(g.home);
+    const kick = g.kickoffAtLocal ? new Date(g.kickoffAtLocal).getTime() : null;
+    const m = finals.filter(f => (f.a === a && f.h === h) || (f.a === h && f.h === a))
+      .sort((x, y) => kick ? Math.abs(x.kick - kick) - Math.abs(y.kick - kick) : y.kick - x.kick)[0];
+    if (!m || (kick && Math.abs(m.kick - kick) > 3 * 86400000)) return;
+    const flipped = m.a !== a;
+    g.winner = m.side === 'tie' ? 'tie' : flipped ? (m.side === 'away' ? 'home' : 'away') : m.side;
+    filled++;
+  });
+
+  renderGameRows();
+  btn.disabled = false; btn.textContent = '📡 Fill winners from ESPN';
+  const waiting = todo.length - filled;
+  banner.innerHTML = filled
+    ? `<div class="banner success">Filled in ${filled} winner${filled === 1 ? '' : 's'}${waiting ? `. ${waiting} game${waiting === 1 ? ' isn\'t' : 's aren\'t'} final yet` : ''}. Check them, then click <strong>Save week</strong>.</div>`
+    : `<div class="banner info">No new finals yet. ${waiting} game${waiting === 1 ? ' is' : 's are'} still to be played or in progress.</div>`;
 }
 
 async function onLogin() {
