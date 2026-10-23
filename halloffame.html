@@ -115,9 +115,9 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
-<script src="hof.js?v=1"></script>
+<script src="hof.js?v=2"></script>
 <script>
-// HALL-OF-FAME-V4  (search View Source for this to confirm the live version)
+// HALL-OF-FAME-V5  (search View Source for this to confirm the live version)
 // The season math lives in hof.js (shared with the Admin page's Season Wrap-Up tab).
 let isAdminUser = false, liveSnapshot = null;
 
@@ -146,7 +146,7 @@ function renderPast() {
     <p class="muted" style="margin-top:-6px;">Tap a season to see its awards and every player's recap.</p>
     ${past.map(snap => `<details class="hof-past">
       <summary><span class="hof-past-year">${snap.year}</span>
-        <span class="hof-past-champ">🏆 ${snap.champions.map(c => escapeHtml(c.name)).join(' &amp; ') || 'No champion'}</span></summary>
+        <span class="hof-past-champ">🏆 ${snap.champions.map(c => escapeHtml(c.name) + nowKnownAs(c.playerId, c.name)).join(' &amp; ') || 'No champion'}</span></summary>
       <div class="hof-past-body">${renderSnapshot(snap, true)}</div>
     </details>`).join('')}`;
 }

@@ -263,7 +263,7 @@ Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
-<script src="hof.js?v=1"></script>
+<script src="hof.js?v=2"></script>
 <script>
 let editingWeekId = null; // null = creating a new week
 let gameRows = []; // { id, away, home, kickoff, winner }
@@ -1040,24 +1040,26 @@ async function onDeleteWeek() {
 }
 
 async function loadRoster() {
-  const players = await getPlayers();
+  const [players, currentSeason] = await Promise.all([getPlayers(), getSeasonYear()]);
   const card = document.getElementById('rosterCard');
   if (players.length === 0) {
     card.innerHTML = `<p class="muted">No one has joined yet.</p>`;
     return;
   }
-  card.innerHTML = `<p class="muted" style="margin-top:0;">Add each kid's real first name (and last initial if needed) so parents can find them in the standings — it'll show as a small subtitle under their team name. Upload a fun badge image here too, and reset a forgotten PIN.</p>` +
+  card.innerHTML = `<p class="muted" style="margin-top:0;">Add each kid's real first name (and last initial if needed) so parents can find them in the standings — it'll show as a small subtitle under their team name. Upload a fun badge image here too, and reset a forgotten PIN. Teams can be <strong>renamed once a season</strong>: the kid keeps their PIN, badge and stats.</p>` +
     players.map(p => `
       <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--line);">
         <div style="display:flex; align-items:center; gap:10px; min-width:0;">
           ${playerBadgeImgTag(p, 44)}
-          <span style="overflow-wrap:anywhere;">${escapeHtml(p.name)}</span>
+          <span style="overflow-wrap:anywhere;">${escapeHtml(p.name)}
+            ${(p.previousNames || []).length ? `<span class="muted" style="display:block; font-size:12px;">formerly ${p.previousNames.map(escapeHtml).join(', ')}${p.renamedSeason === currentSeason ? ` · renamed this season` : ''}</span>` : ''}</span>
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
           <input type="text" placeholder="Kid's real name" value="${escapeHtml(p.kidName || '')}" data-kidname="${p.id}" style="max-width:160px;">
           <button class="secondary" data-save-kidname="${p.id}" type="button">Save</button>
           <input type="file" accept="image/*" data-badge-file="${p.id}" style="display:none;">
           <button class="secondary" data-badge-btn="${p.id}" type="button">Badge</button>
+          <button class="secondary" data-rename="${p.id}" type="button">✏️ Rename</button>
           <button class="secondary" data-reset="${p.id}" type="button">Reset PIN</button>
           <button class="danger" data-remove="${p.id}" data-name="${escapeHtml(p.name)}" type="button">Remove</button>
         </div>
@@ -1074,6 +1076,25 @@ async function loadRoster() {
         setTimeout(() => { btn.textContent = 'Save'; }, 1200);
       } catch (e) {
         alert('Could not save: ' + e.message);
+      }
+    });
+  });
+
+  // RENAME-V1: once per season, kid keeps their PIN
+  card.querySelectorAll('button[data-rename]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const player = players.find(x => x.id === btn.dataset.rename);
+      if (player.renamedSeason === currentSeason &&
+          !confirm(`${player.name} was already renamed this season (teams get one name change per season).\n\nRename again anyway, for example to fix a typo?`)) return;
+      const newName = prompt(`New team name for ${player.name}${player.kidName ? ` (${player.kidName})` : ''}:\n\nThey'll keep their PIN, badge and stats, and sign in with the new name.`, player.name);
+      if (newName === null) return;
+      try {
+        const saved = await renamePlayer(player, newName, currentSeason);
+        alert(`Done! "${player.name}" is now "${saved}". Their PIN hasn't changed.`);
+        await loadRoster();
+        loadAdminPicksViewer();
+      } catch (e) {
+        alert(e.message);
       }
     });
   });

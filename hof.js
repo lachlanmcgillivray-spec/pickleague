@@ -1,5 +1,5 @@
 // ============================================================
-// HOF-JS-V1: shared season math for the I Scream Hall of Fame (halloffame.html)
+// HOF-JS-V2: shared season math for the I Scream Hall of Fame (halloffame.html)
 // and the Season Wrap-Up tab on admin.html. Loaded after common.js.
 // ============================================================
 
@@ -56,6 +56,7 @@ document.head.insertAdjacentHTML('beforeend', `<style>
   .hof-king b { font-family:var(--font-fun); color:var(--navy); }
   .hof-king span { display:block; color:var(--ink-soft); font-size:12px; }
 
+  .hof-now { font-size:.72em; font-weight:500; opacity:.75; white-space:nowrap; }
   .hof-season-label { text-align:center; font-family:var(--font-display) !important; font-weight:400; letter-spacing:1px; color:var(--navy); }
   .hof-recap { display:flex; flex-direction:column; gap:8px; }
   .hof-recap-row { display:flex; align-items:flex-start; gap:12px; background:white; border-radius:12px; padding:10px 12px; box-shadow:var(--shadow); }
@@ -376,11 +377,17 @@ function buildSnapshot(standings) {
   };
 }
 
-function champBlock(c) {
+/** RENAME-V1: in past seasons, shows "now Mint Machine" when a team has been renamed since. */
+function nowKnownAs(playerId, oldName) {
+  const p = playersById[playerId];
+  return p && p.name !== oldName ? ` <span class="hof-now">(now ${escapeHtml(p.name)})</span>` : '';
+}
+
+function champBlock(c, archived) {
   return `<div class="hof-one">
     <span class="trophy" aria-hidden="true">🏆</span>
     ${badgeFor(c.playerId, 64)}
-    <div class="hof-name">${escapeHtml(c.name)}</div>
+    <div class="hof-name">${escapeHtml(c.name)}${archived ? nowKnownAs(c.playerId, c.name) : ''}</div>
     ${c.kidName ? `<div class="hof-kid">${escapeHtml(c.kidName)}</div>` : ''}
     <div class="hof-stat">${c.points} points</div>
   </div>`;
@@ -395,7 +402,7 @@ function renderSnapshot(snap, archived) {
     : `<div class="hof-champ">
         <div class="hof-kicker">${final ? `${snap.year} season champion` : `${snap.year} season so far`}</div>
         <div class="hof-champ-title">${final ? (many ? 'Sundae Co-Champions' : 'Sundae Champion') : (many ? 'Tied for the lead' : 'Leading the way')}</div>
-        <div class="hof-winners">${snap.champions.map(champBlock).join('')}</div>
+        <div class="hof-winners">${snap.champions.map(c => champBlock(c, archived)).join('')}</div>
         ${final ? '' : `<div class="hof-note">The crown is official once Week ${FINAL_WEEK} results are in.</div>`}
       </div>`;
 
@@ -403,7 +410,7 @@ function renderSnapshot(snap, archived) {
     ? `<div class="hof-mini pending"><div class="mini-emoji">${m.emoji}</div><div class="mini-name">${escapeHtml(m.name)}</div>
         <div class="mini-sub">Still being played. The champion appears once every result is in.</div></div>`
     : `<div class="hof-mini"><div class="mini-emoji">${m.emoji}</div><div class="mini-name">${escapeHtml(m.name)}</div>
-        <div class="mini-winner">🏆 ${m.winners.map(w => escapeHtml(w.name)).join(' &amp; ') || 'No entries'}</div>
+        <div class="mini-winner">🏆 ${m.winners.map(w => escapeHtml(w.name) + (archived ? nowKnownAs(w.playerId, w.name) : '')).join(' &amp; ') || 'No entries'}</div>
         ${m.winners.length ? `<div class="mini-sub">${m.points} of 7 points · ${m.winners.length > 1 ? 'Co-champions' : 'Champion'} of ${plural(m.total, 'player')}</div>` : ''}</div>`).join('')}</div>`;
 
   const awards = `<h2 class="section-title">🍦 The Fun Awards</h2>
@@ -411,20 +418,20 @@ function renderSnapshot(snap, archived) {
     <div class="hof-awards">${snap.awards.map(a => `<div class="hof-award">
       <div class="hof-award-head"><span class="hof-award-emoji" aria-hidden="true">${a.emoji}</span><span class="hof-award-title">${escapeHtml(a.title)}</span></div>
       <div class="hof-award-desc">${escapeHtml(a.desc)}</div>
-      ${a.winner ? `<div class="hof-award-win">${badgeFor(a.winner.playerId, 36)}<div><strong>${escapeHtml(a.winner.name)}</strong>${a.winner.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(a.winner.kidName)}</span>` : ''}<div class="why">${escapeHtml(a.winner.why)}</div></div></div>`
+      ${a.winner ? `<div class="hof-award-win">${badgeFor(a.winner.playerId, 36)}<div><strong>${escapeHtml(a.winner.name)}</strong>${archived ? nowKnownAs(a.winner.playerId, a.winner.name) : ''}${a.winner.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(a.winner.kidName)}</span>` : ''}<div class="why">${escapeHtml(a.winner.why)}</div></div></div>`
                  : `<div class="hof-award-empty">${archived ? 'Nobody earned this one.' : 'Up for grabs. Nobody has earned this one yet.'}</div>`}
     </div>`).join('')}</div>`;
 
   const kings = `<h2 class="section-title" style="margin-top:24px;">👑 Category Kings</h2>
     ${archived ? '' : `<p class="muted" style="margin-top:-6px;">Who picked each draft-kit category the most. Just for bragging rights.</p>`}
     <div class="hof-kings">${snap.kings.map(k => `<div class="hof-king">${k.emoji} <b>${escapeHtml(k.category)}</b>
-      <span>${k.winner ? `${escapeHtml(k.winner.name)}: ${plural(k.winner.n, 'pick')}` : 'Nobody'}</span></div>`).join('')}</div>`;
+      <span>${k.winner ? `${escapeHtml(k.winner.name)}${archived ? nowKnownAs(k.winner.playerId, k.winner.name) : ''}: ${plural(k.winner.n, 'pick')}` : 'Nobody'}</span></div>`).join('')}</div>`;
 
   const recap = !archived ? '' : `<h2 class="section-title" style="margin-top:24px;">📋 Final standings &amp; player recaps</h2>
     <div class="hof-recap">${snap.standings.map(r => `<div class="hof-recap-row">
       <div class="hof-recap-rank">${r.rank}</div>
       <div class="hof-recap-main">
-        <strong>${escapeHtml(r.name)}</strong>${r.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(r.kidName)}</span>` : ''}
+        <strong>${escapeHtml(r.name)}</strong>${archived ? nowKnownAs(r.playerId, r.name) : ''}${r.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(r.kidName)}</span>` : ''}
         <div class="hof-recap-line">${r.won} of ${r.decided} correct${r.decided ? ` (${Math.round(r.won / r.decided * 100)}%)` : ''}${r.favCategory ? ` · Favourite category: ${escapeHtml(r.favCategory)}` : ''}</div>
         ${r.topTeams.length ? `<div class="hof-recap-line">Most picked: ${r.topTeams.map(t => `${escapeHtml(t.team)} ×${t.n}`).join(', ')}</div>` : ''}
       </div>

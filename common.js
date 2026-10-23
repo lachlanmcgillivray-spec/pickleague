@@ -47,6 +47,12 @@ function hashPin(pin, name) {
   return sha256Hex(`${pin}::${name.trim().toLowerCase()}`);
 }
 
+/** RENAME-V1: the name a player's PIN was created with. Renaming a team keeps this the same,
+ * so the kid's PIN keeps working under their new team name. */
+function pinSaltFor(player) {
+  return player.pinSalt || player.name;
+}
+
 function isValidPin(pin) {
   return /^\d{6}$/.test(pin);
 }
@@ -64,6 +70,7 @@ async function createPlayer(rawName, pin) {
   const doc = await db.collection('players').add({
     name,
     pinHash,
+    pinSalt: name,
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
   return doc.id;
@@ -72,7 +79,7 @@ async function createPlayer(rawName, pin) {
 /** Checks an entered PIN against a player's stored hash. */
 async function verifyPlayerPin(player, pin) {
   if (!isValidPin(pin)) return false;
-  const attemptHash = await hashPin(pin, player.name);
+  const attemptHash = await hashPin(pin, pinSaltFor(player));
   return attemptHash === player.pinHash;
 }
 
@@ -80,8 +87,37 @@ async function verifyPlayerPin(player, pin) {
 async function setPlayerPin(player, pin) {
   if (!isValidPin(pin)) throw new Error('PIN must be exactly 6 digits.');
   const pinHash = await hashPin(pin, player.name);
-  await db.collection('players').doc(player.id).update({ pinHash });
+  await db.collection('players').doc(player.id).update({ pinHash, pinSalt: player.name });
+  player.pinSalt = player.name;
   return pinHash;
+}
+
+/** RENAME-V1 (admin only): gives a team a new name. The kid keeps their PIN, badge, real name,
+ * and everything they've won. Their picks and mini comp entries switch to the new name so
+ * standings show it everywhere. Past Hall of Fame seasons keep the name they won with. */
+async function renamePlayer(player, rawName, seasonYear) {
+  const name = rawName.trim();
+  if (!name) throw new Error('The new name cannot be empty.');
+  if (name === player.name) throw new Error("That's already their team name.");
+  const players = await getPlayers();
+  if (players.some(p => p.id !== player.id && p.name.toLowerCase() === name.toLowerCase())) {
+    throw new Error('Another player already has that name.');
+  }
+  const batch = db.batch();
+  batch.update(db.collection('players').doc(player.id), {
+    name,
+    pinSalt: pinSaltFor(player),            // keeps their PIN working
+    renamedSeason: seasonYear,
+    previousNames: firebase.firestore.FieldValue.arrayUnion(player.name)
+  });
+  const [picks, entries] = await Promise.all([
+    db.collection('picks').where('playerId', '==', player.id).get(),
+    db.collection('eventPicks').where('playerId', '==', player.id).get().catch(() => ({ docs: [] }))
+  ]);
+  picks.docs.forEach(d => batch.update(d.ref, { playerName: name }));
+  entries.docs.forEach(d => batch.update(d.ref, { playerName: name }));
+  await batch.commit();
+  return name;
 }
 
 /** Admin-only: removes a player and every pick they've ever submitted, so they
