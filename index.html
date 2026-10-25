@@ -221,12 +221,12 @@ async function refreshWeeks() {
   }
 
   sel.innerHTML = weeks.map(w =>
-    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? ' (locked)' : ''}</option>`
+    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${isWeekLocked(w) ? ' (locked)' : ''}</option>`
   ).join('');
 
   // Default to the earliest *unlocked* week (i.e. the current week to pick),
   // else fall back to the most recent week overall.
-  const unlocked = weeks.find(w => !w.locked);
+  const unlocked = weeks.find(w => !isWeekLocked(w));
   const defaultWeek = unlocked || weeks[weeks.length - 1];
   sel.value = defaultWeek.id;
 

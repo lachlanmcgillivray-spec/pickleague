@@ -130,7 +130,7 @@
 
   <div class="card">
     <h2 class="section-title">🔍 Who picked what</h2>
-    <p class="muted" style="margin-top:0;">Picks are revealed here once the admin locks the week — so nobody can peek and copy before the deadline.</p>
+    <p class="muted" style="margin-top:0;">Each pick is revealed here as soon as its game kicks off, so nobody can peek and copy before the game starts.</p>
     <div class="player-select-row">
       <select id="picksWeekSelect"></select>
     </div>
@@ -226,12 +226,13 @@ function renderPicksSelector(weeks, totalPlayers) {
     return;
   }
   sel.innerHTML = weeks.map(w =>
-    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${w.locked ? '' : ' (open)'}</option>`
+    `<option value="${w.id}">${escapeHtml(w.label || ('Week ' + w.weekNumber))}${isWeekLocked(w) ? '' : (w.games || []).some(hasGameStarted) ? ' (in progress)' : ' (open)'}</option>`
   ).join('');
 
-  const lastLocked = [...weeks].reverse().find(w => w.locked);
-  const firstUnlocked = weeks.find(w => !w.locked);
-  sel.value = (lastLocked || firstUnlocked || weeks[weeks.length - 1]).id;
+  // Open on the most recent week that has kicked off (the one everyone's talking about).
+  const lastStarted = [...weeks].reverse().find(w => (w.games || []).some(hasGameStarted));
+  const firstUnlocked = weeks.find(w => !isWeekLocked(w));
+  sel.value = (lastStarted || firstUnlocked || weeks[weeks.length - 1]).id;
 
   sel.addEventListener('change', () => loadWeekPicks(sel.value, totalPlayers));
   loadWeekPicks(sel.value, totalPlayers);
@@ -243,9 +244,12 @@ async function loadWeekPicks(weekId, totalPlayers) {
   if (!week) { area.innerHTML = ''; return; }
 
   const picks = await getAllPicksForWeek(weekId);
+  const weekLocked = isWeekLocked(week);
+  const anyStarted = weekLocked || (week.games || []).some(hasGameStarted);
 
-  if (!week.locked) {
-    area.innerHTML = `<div class="banner info">Picks for ${escapeHtml(week.label || 'this week')} are still open — ${picks.length} of ${totalPlayers} player(s) have submitted so far. Check back after the admin locks the week!</div>`;
+  // AUTO-LOCK-V1: picks are revealed game by game at kickoff, no manual lock needed.
+  if (!anyStarted) {
+    area.innerHTML = `<div class="banner info">No games have kicked off yet in ${escapeHtml(week.label || 'this week')}. ${picks.length} of ${totalPlayers} player(s) have picked so far. Each pick shows up here the moment its game starts.</div>`;
     return;
   }
 
@@ -254,17 +258,32 @@ async function loadWeekPicks(weekId, totalPlayers) {
     return;
   }
 
-  area.innerHTML = picks
+  // When's the next reveal? (earliest kickoff among picked games that haven't started)
+  let nextReveal = null;
+  if (!weekLocked) {
+    picks.forEach(p => (p.pickedTeams || []).forEach(team => {
+      const g = (week.games || []).find(x => x.away === team || x.home === team);
+      if (g && !hasGameStarted(g) && g.kickoffAt) {
+        const d = g.kickoffAt.toDate ? g.kickoffAt.toDate() : new Date(g.kickoffAt);
+        if (!nextReveal || d < nextReveal) nextReveal = d;
+      }
+    }));
+  }
+
+  area.innerHTML = (weekLocked ? '' : `<p class="muted" style="margin:0 0 10px;">🔒 = picked, but that game hasn't kicked off yet.${nextReveal ? ` Next reveal: <strong>${nextReveal.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</strong>.` : ''}</p>`) + picks
     .sort((a, b) => a.playerName.localeCompare(b.playerName))
     .map(p => {
       const score = scorePick(p, week);
-      const teamsHtml = (p.pickedTeams || []).map(team => {
+      const teams = p.pickedTeams || [];
+      const shown = teams.filter(team => isPickRevealed(week, team));
+      const hidden = teams.length - shown.length;
+      const teamsHtml = shown.map(team => {
         const game = (week.games || []).find(g => g.away === team || g.home === team);
         const decided = game && game.winner;
         const won = decided && (game.winner === 'tie' || (game.winner === 'away' && game.away === team) || (game.winner === 'home' && game.home === team));
         const cls = !decided ? 'pick-pending' : game.winner === 'tie' ? 'pick-tie' : (won ? 'pick-correct' : 'pick-wrong');
         return `<span class="pick-chip ${cls}">${teamLogoImgTag(team, 18)}${escapeHtml(team)}</span>`;
-      }).join('');
+      }).join('') + (hidden ? `<span class="pick-chip" style="opacity:.75;" title="Revealed when the game kicks off">🔒 ${hidden} hidden until kickoff</span>` : '');
       return `
         <div class="standings-row" style="align-items:flex-start;">
           ${playerBadgeImgTag(playersByIdGlobal[p.playerId], 36)}

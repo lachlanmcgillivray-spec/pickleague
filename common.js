@@ -177,15 +177,34 @@ function pickDocId(weekId, playerId) {
   return `${weekId}_${playerId}`;
 }
 
-/** True if a week is locked either manually, or because its auto-lock time has passed. */
+/** True if a week is locked: manually, because its auto-lock time has passed, or (AUTO-LOCK-V1)
+ * because every game in it is finished, so nobody has to remember to lock it. */
 function isWeekLocked(week) {
   if (!week) return false;
   if (week.locked) return true;
   if (week.lockAt) {
     const d = week.lockAt.toDate ? week.lockAt.toDate() : new Date(week.lockAt);
-    return d.getTime() <= Date.now();
+    if (d.getTime() <= Date.now()) return true;
   }
-  return false;
+  const games = week.games || [];
+  return games.length > 0 && games.every(g => !!g.winner);
+}
+
+/** AUTO-LOCK-V1: true once a game has kicked off (or already has a result). */
+function hasGameStarted(game) {
+  if (!game) return false;
+  if (game.winner) return true;
+  if (!game.kickoffAt) return false;
+  const d = game.kickoffAt.toDate ? game.kickoffAt.toDate() : new Date(game.kickoffAt);
+  return d.getTime() <= Date.now();
+}
+
+/** AUTO-LOCK-V1: whether everyone can see who picked this team yet. Picks are revealed at
+ * their game's kickoff, or all at once when the week is locked. */
+function isPickRevealed(week, team) {
+  if (isWeekLocked(week)) return true;
+  const game = (week.games || []).find(g => g.away === team || g.home === team);
+  return hasGameStarted(game);
 }
 
 async function getPick(weekId, playerId) {
