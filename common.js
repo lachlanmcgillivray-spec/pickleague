@@ -317,6 +317,63 @@ function scorePick(pick, week) {
   return { correct, bonus, points: correct + (bonus ? 1 : 0), anyPending };
 }
 
+// ============================================================
+// TURDUCKEN-V1: scoring for the Turducken Tussle mini comp (American Thanksgiving).
+// Kids pick each game's winner, a Wishbone game (that winner counts double), the Pie Fight
+// (highest-scoring game), the Food Coma (lowest-scoring game), Second Helpings (will any game
+// go to overtime?) and the Leftovers Guess (total points across every game, closest = +1).
+// Event results look like: { winners: {gameId: side}, totals: {gameId: points}, ot: {gameId: true|false} }
+// ============================================================
+function turduckenMaxPoints(ev) { return ((ev && ev.games) || []).length + 5; }
+
+function turduckenDerived(ev) {
+  const res = (ev && ev.results) || {};
+  const games = (ev && ev.games) || [];
+  const totals = res.totals || {}, ot = res.ot || {}, winners = res.winners || {};
+  const allTotals = games.length > 0 && games.every(g => typeof totals[g.id] === 'number');
+  let high = null, low = null, sum = null;
+  if (allTotals) {
+    const vals = games.map(g => totals[g.id]);
+    const mx = Math.max(...vals), mn = Math.min(...vals);
+    high = games.filter(g => totals[g.id] === mx).map(g => g.id);   // ties: any of them counts
+    low = games.filter(g => totals[g.id] === mn).map(g => g.id);
+    sum = vals.reduce((a, b) => a + b, 0);
+  }
+  const anyOT = games.some(g => ot[g.id] === true);
+  const allOT = games.length > 0 && games.every(g => typeof ot[g.id] === 'boolean');
+  const otAnswer = anyOT ? 'yes' : allOT ? 'no' : null;
+  const allWinners = games.length > 0 && games.every(g => winners[g.id]);
+  return { high, low, sum, otAnswer, final: allWinners && allTotals && allOT };
+}
+
+/** Points for one entry using whatever results are in so far (the closest-guess bonus is
+ * added on the leaderboard, since it depends on everyone's guesses). */
+function scoreTurduckenEntry(ev, p) {
+  const winners = ((ev && ev.results) || {}).winners || {};
+  const d = turduckenDerived(ev);
+  let points = 0;
+  const marks = [];
+  ((ev && ev.games) || []).forEach(g => {
+    const mine = (p.winners || {})[g.id], actual = winners[g.id];
+    const state = !actual ? 'pending' : actual === 'tie' && mine ? 'tie' : mine === actual ? 'yes' : 'no';
+    const wish = p.wishbone === g.id;
+    if (state === 'yes' || state === 'tie') points += wish ? 2 : 1;
+    marks.push({ kind: 'win', gameId: g.id, side: mine, state, wish });
+  });
+  const pickMark = (kind, set) => {
+    const state = !set ? 'pending' : set.includes(p[kind]) ? 'yes' : 'no';
+    if (state === 'yes') points += 1;
+    marks.push({ kind, gameId: p[kind], state });
+  };
+  pickMark('pieFight', d.high);
+  pickMark('foodComa', d.low);
+  const otState = !d.otAnswer ? 'pending' : p.overtime === d.otAnswer ? 'yes' : 'no';
+  if (otState === 'yes') points += 1;
+  marks.push({ kind: 'overtime', value: p.overtime, state: otState });
+  const off = d.sum !== null && typeof p.totalGuess === 'number' ? Math.abs(p.totalGuess - d.sum) : null;
+  return { points, off, marks };
+}
+
 function escapeHtml(str) {
   return String(str).replace(/[&<>"']/g, s => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'

@@ -1,5 +1,5 @@
 // ============================================================
-// HOF-JS-V2: shared season math for the I Scream Hall of Fame (halloffame.html)
+// HOF-JS-V3: shared season math for the I Scream Hall of Fame (halloffame.html)
 // and the Season Wrap-Up tab on admin.html. Loaded after common.js.
 // ============================================================
 
@@ -146,7 +146,12 @@ function badgeFor(playerId, size) {
 
 // ---------- mini comps (Harvest Bowl format) ----------
 /** True once every mini-comp result has been entered. */
+/** TURDUCKEN-V1: which format a mini comp uses. */
+function isTurducken(ev) { return !!ev && (ev.type === 'turducken' || /^turducken/.test(ev.id || '')); }
+function miniMaxPoints(ev) { return isTurducken(ev) ? turduckenMaxPoints(ev) : 7; }
+
 function miniCompFinal(ev) {
+  if (isTurducken(ev)) return turduckenDerived(ev).final;
   const res = (ev && ev.results) || {};
   const games = (ev && ev.games) || [];
   return !!(games.length && games.every(g => (res.winners || {})[g.id]) && res.coinToss && res.firstScore && typeof res.totalPoints === 'number');
@@ -158,7 +163,7 @@ function scoreMiniEntries(ev, entries) {
   const res = ev.results || {};
   const winners = res.winners || {};
   const games = ev.games || [];
-  const rows = entries.map(p => {
+  const rows = isTurducken(ev) ? entries.map(p => ({ p, ...scoreTurduckenEntry(ev, p) })) : entries.map(p => {
     let points = 0;
     games.forEach(g => {
       const actual = winners[g.id], mine = (p.winners || {})[g.id];
@@ -187,14 +192,14 @@ function scoreMiniComp(ev) {
 }
 
 function miniEmoji(name) {
-  return /harvest|turkey/i.test(name) ? '🦃' : /stocking|christmas/i.test(name) ? '🎄' : '🏅';
+  return /turducken/i.test(name) ? '🦆' : /harvest|turkey/i.test(name) ? '🦃' : /stocking|christmas/i.test(name) ? '🎄' : '🏅';
 }
 function buildMinis() {
   return events.map(ev => {
     const name = ev.name || 'Mini comp';
     const result = scoreMiniComp(ev);
     if (!result) return { name, emoji: miniEmoji(name), final: false };
-    return { name, emoji: miniEmoji(name), final: true, total: result.total,
+    return { name, emoji: miniEmoji(name), final: true, total: result.total, maxPoints: miniMaxPoints(ev),
       points: result.winners[0] ? result.winners[0].points : 0,
       winners: result.winners.map(r => ({ playerId: r.p.playerId, name: r.p.playerName })) };
   });
@@ -411,7 +416,7 @@ function renderSnapshot(snap, archived) {
         <div class="mini-sub">Still being played. The champion appears once every result is in.</div></div>`
     : `<div class="hof-mini"><div class="mini-emoji">${m.emoji}</div><div class="mini-name">${escapeHtml(m.name)}</div>
         <div class="mini-winner">🏆 ${m.winners.map(w => escapeHtml(w.name) + (archived ? nowKnownAs(w.playerId, w.name) : '')).join(' &amp; ') || 'No entries'}</div>
-        ${m.winners.length ? `<div class="mini-sub">${m.points} of 7 points · ${m.winners.length > 1 ? 'Co-champions' : 'Champion'} of ${plural(m.total, 'player')}</div>` : ''}</div>`).join('')}</div>`;
+        ${m.winners.length ? `<div class="mini-sub">${m.points} of ${m.maxPoints || 7} points · ${m.winners.length > 1 ? 'Co-champions' : 'Champion'} of ${plural(m.total, 'player')}</div>` : ''}</div>`).join('')}</div>`;
 
   const awards = `<h2 class="section-title">🍦 The Fun Awards</h2>
     ${archived ? '' : `<p class="muted" style="margin-top:-6px;">Each kid can win up to ${plural(snap.cap, 'award')}, so the prizes get shared around. Ties go to whoever is higher in the standings.</p>`}

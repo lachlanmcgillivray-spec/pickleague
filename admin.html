@@ -46,6 +46,7 @@
   .adm-entries button { padding:4px 10px; font-size:12px; }
   .adm-scroll { overflow-x:auto; }
 
+  .adm-comp-pick { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
   .adm-past { display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--line); }
   .adm-past:last-child { border-bottom:none; }
   .adm-past b { font-family:var(--font-display); font-size:20px; color:var(--navy); min-width:56px; }
@@ -133,6 +134,7 @@
       <a class="nav-link" href="standings.html">Standings</a>
       <a class="nav-link" href="scoop.html">The Scoop</a>
       <a class="nav-link" href="harvest.html">Harvest Bowl</a>
+      <a class="nav-link" href="turducken.html">Turducken Tussle</a>
       <a class="nav-link" href="halloffame.html">Hall of Fame</a>
     </nav>
   </div>
@@ -263,7 +265,7 @@ Bills @ Rams | Mon Oct 12 8:15 PM"></textarea>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="config.js"></script>
 <script src="common.js"></script>
-<script src="hof.js?v=2"></script>
+<script src="hof.js?v=3"></script>
 <script>
 let editingWeekId = null; // null = creating a new week
 let gameRows = []; // { id, away, home, kickoff, winner }
@@ -509,11 +511,14 @@ async function loadMinisTab() {
     area.innerHTML = `<div class="banner error">Couldn't load mini comps. If you haven't yet, publish the Firestore rules with the events and eventPicks sections.</div>`;
     return;
   }
-  const harvestId = 'harvest' + seasonYear;
+  const harvestId = 'harvest' + seasonYear, turduckenId = 'turducken' + seasonYear;
   const list = [...events];
-  if (!list.some(e => e.id === harvestId)) list.unshift({ id: harvestId, name: 'Harvest Bowl', _new: true });
-  list.sort((a, b) => (a.id === harvestId ? -1 : b.id === harvestId ? 1 : a.id.localeCompare(b.id)));
-  if (!mcSelectedId || !list.some(e => e.id === mcSelectedId)) mcSelectedId = list[0].id;
+  if (!list.some(e => e.id === harvestId)) list.push({ id: harvestId, name: 'Harvest Bowl', _new: true });
+  if (!list.some(e => e.id === turduckenId)) list.push({ id: turduckenId, name: 'Turducken Tussle', type: 'turducken', _new: true });
+  const order = id => id === harvestId ? 0 : id === turduckenId ? 1 : 2;
+  list.sort((a, b) => order(a.id) - order(b.id) || a.id.localeCompare(b.id));
+  // Open on the first comp that isn't finished yet (e.g. the Turducken Tussle once the Harvest Bowl is done).
+  if (!mcSelectedId || !list.some(e => e.id === mcSelectedId)) mcSelectedId = (list.find(e => !miniCompFinal(e)) || list[0]).id;
   renderMiniComp(list);
 }
 
@@ -529,6 +534,7 @@ function mcGameLabel(g) { return `${g.away} @ ${g.home}`; }
 function renderMiniComp(list) {
   const area = document.getElementById('minisArea');
   const ev = list.find(e => e.id === mcSelectedId);
+  if (isTurducken(ev)) return renderTurduckenAdmin(list, ev);
   const isNew = !!ev._new;
   const year = (ev.id.match(/\d{4}$/) || [seasonYear])[0];
   const entries = eventPicks.filter(p => p.eventId === ev.id);
@@ -561,8 +567,7 @@ function renderMiniComp(list) {
   const stateFor = (actual, mine) => !actual ? '' : (actual === 'tie' && mine) ? 'tie' : mine === actual ? 'ok' : 'no';
 
   area.innerHTML = `
-    ${list.length > 1 ? `<div class="player-select-row"><select id="mcPick">${list.map(e =>
-      `<option value="${e.id}" ${e.id === ev.id ? 'selected' : ''}>${escapeHtml(e.name || 'Mini comp')} ${(e.id.match(/\d{4}$/) || [''])[0]}${e._new ? ' (not set up yet)' : ''}</option>`).join('')}</select></div>` : ''}
+    ${mcCompPicker(list, ev)}
     <h2 class="section-title" style="margin-top:0;">🦃 ${escapeHtml(ev.name || 'Harvest Bowl')} ${year}</h2>
     <p class="adm-hint">Kids play on the <a href="harvest.html" target="_blank" rel="noopener">Harvest Bowl page</a>. Everything you set here shows up there right away.</p>
 
@@ -629,8 +634,7 @@ function renderMiniComp(list) {
     </div>` : ''}`;
 
   // ----- events -----
-  const pick = document.getElementById('mcPick');
-  if (pick) pick.onchange = () => { mcSelectedId = pick.value; renderMiniComp(list); };
+  wireCompPicker(list);
 
   document.getElementById('mcWeek').onchange = e => {
     Object.assign(ev, { weekId: e.target.value, games: [], drumstickId: '' });
@@ -697,6 +701,173 @@ function renderMiniComp(list) {
       await db.collection('eventPicks').doc(`${ev.id}_${r.p.playerId}`).delete();
       await loadMinisTab();
     } catch (e) { console.error(e); document.getElementById('mcEntryBanner').innerHTML = `<div class="banner error">Couldn't remove that entry.</div>`; }
+  }));
+}
+
+// ---------------- Turducken Tussle (TURDUCKEN-V1) ----------------
+function mcCompPicker(list, ev) {
+  return `<div class="adm-comp-pick">${list.map(e => {
+    const fin = miniCompFinal(e);
+    return `<button class="adm-tab ${e.id === ev.id ? 'on' : ''}" data-mc-comp="${escapeHtml(e.id)}">${miniEmoji(e.name || '')} ${escapeHtml(e.name || 'Mini comp')}${e._new ? ' · not set up' : fin ? ' · ✅ done' : ''}</button>`;
+  }).join('')}</div>`;
+}
+function wireCompPicker(list) {
+  document.querySelectorAll('[data-mc-comp]').forEach(b => b.addEventListener('click', () => {
+    mcSelectedId = b.dataset.mcComp; renderMiniComp(list);
+  }));
+}
+
+function renderTurduckenAdmin(list, ev) {
+  const area = document.getElementById('minisArea');
+  const isNew = !!ev._new;
+  const year = (ev.id.match(/\d{4}$/) || [seasonYear])[0];
+  const entries = eventPicks.filter(p => p.eventId === ev.id);
+  const games = ev.games || [];
+  const res = ev.results || {};
+  const d = turduckenDerived(ev);
+  const ready = games.length >= 2;
+  const rows = ready ? scoreMiniEntries(ev, entries) : [];
+  const locked = mcLocked(ev);
+  const closeAt = admToDate(ev.lockAt);
+  const max = turduckenMaxPoints(ev);
+  const resultsIn = games.reduce((n, g) => n + ((res.winners || {})[g.id] ? 1 : 0) + (typeof (res.totals || {})[g.id] === 'number' ? 1 : 0) + (typeof (res.ot || {})[g.id] === 'boolean' ? 1 : 0), 0);
+  const missing = players.filter(p => !entries.some(e => e.playerId === p.id));
+  const anyResults = resultsIn > 0;
+  const leader = rows.length && anyResults ? rows.filter(r => r.rank === 1).map(r => r.p.playerName).join(' & ') : '—';
+
+  const weekId = ev.weekId || (weeks.find(w => !isWeekLocked(w)) || weeks[weeks.length - 1] || {}).id || '';
+  const week = weeks.find(w => w.id === weekId);
+  const wkGames = (week && week.games) || [];
+  const chosen = new Set(games.map(g => g.id));
+  const when = g => { const t = admToDate(g.kickoffAt); return t ? t.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : 'no kickoff time'; };
+  const nick = n => String(n || '').trim().split(/\s+/).pop();
+  const shortG = g => g ? `${nick(g.away)} @ ${nick(g.home)}` : '—';
+  const cell = (state, text) => `<span class="${state === 'yes' ? 'ok' : state === 'no' ? 'no' : state === 'tie' ? 'tie' : ''}">${escapeHtml(text || '—')}</span>`;
+
+  area.innerHTML = `${mcCompPicker(list, ev)}
+    <h2 class="section-title" style="margin-top:0;">🦃🦆🐔 Turducken Tussle ${year}</h2>
+    <p class="adm-hint">Kids play on the <a href="turducken.html" target="_blank" rel="noopener">Turducken Tussle page</a>. Each game's winner (🦴 Wishbone counts double), 🥧 Pie Fight, 😴 Food Coma, 🍽️ Second Helpings, and the 🦃 Leftovers Guess. Results fill in automatically from ESPN, or enter them below.</p>
+
+    <div class="adm-stats">
+      ${admStat(`${entries.length}<span style="font-size:15px;"> / ${players.length}</span>`, 'players entered')}
+      ${admStat(isNew || !ready ? 'Not set up' : locked ? 'Closed' : 'Open', closeAt ? `picks close ${closeAt.toLocaleString([], { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : 'picks', isNew || !ready ? 'warn' : locked ? '' : 'good')}
+      ${admStat(`${resultsIn}<span style="font-size:15px;"> / ${games.length * 3 || '—'}</span>`, 'results entered', d.final ? 'good' : '')}
+      ${admStat(escapeHtml(leader), d.final ? '🏆 champion' : 'leading right now')}
+    </div>
+
+    <div class="card adm-form">
+      <div class="adm-card-title">1. Setup</div>
+      <p class="adm-hint" style="margin:0;">Tick the Thanksgiving games to include (Wednesday, the three Thursday games and Black Friday). Points available = games + 5, so 5 games is 10 points.</p>
+      <label for="tdWeek">Pull games from</label>
+      <select id="tdWeek">${weeks.map(w => `<option value="${w.id}" ${w.id === weekId ? 'selected' : ''}>${escapeHtml(w.label || 'Week ' + w.weekNumber)}</option>`).join('')}</select>
+      ${wkGames.length ? `<div style="margin-top:10px; display:grid; gap:6px;">${wkGames.map(g => `<label style="display:flex; align-items:center; gap:10px; font-weight:500; margin:0; padding:8px 10px; background:white; border:2px solid ${chosen.has(g.id) ? 'var(--navy)' : 'var(--line)'}; border-radius:10px; cursor:pointer;">
+          <input type="checkbox" data-td-game="${escapeHtml(g.id)}" ${chosen.has(g.id) ? 'checked' : ''} style="width:auto;">
+          <span style="flex:1;">${escapeHtml(mcGameLabel(g))}</span><span class="muted" style="font-size:12px;">${escapeHtml(when(g))}</span></label>`).join('')}</div>`
+        : `<div class="banner error" style="margin-top:8px;">That week has no games yet. Add them in the Weeks &amp; Results tab first.</div>`}
+      <label for="tdLock">Picks close at (usually the first game's kickoff: Wednesday night)</label>
+      <input type="datetime-local" id="tdLock" value="${admLocalInput(closeAt)}">
+      <div class="adm-actions">
+        <button id="tdSaveSetup" class="amber">Save setup</button>
+        ${isNew ? '' : `<button id="tdToggleLock" class="${ev.locked ? 'secondary' : 'danger'}">${ev.locked ? '🔓 Reopen picks' : '🔒 Close picks now'}</button>`}
+      </div>
+      <div id="tdSetupBanner" style="margin-top:10px;"></div>
+    </div>
+
+    ${ready ? `<div class="card adm-form">
+      <div class="adm-card-title">2. Results</div>
+      <p class="adm-hint" style="margin:0;">The score updater fills these in automatically about 30 minutes after each game. You can also enter or fix them here. Pie Fight, Food Coma and the Leftovers total work themselves out from the game totals.</p>
+      <div class="adm-scroll"><table class="adm-entries" style="margin-top:8px;">
+        <thead><tr><th>Game</th><th>Winner</th><th>Total points</th><th>Overtime?</th></tr></thead>
+        <tbody>${games.map(g => `<tr>
+          <td><strong>${escapeHtml(shortG(g))}</strong><div class="muted" style="font-size:11px;">${escapeHtml(when(g))}</div></td>
+          <td><select data-td-win="${escapeHtml(g.id)}"><option value="">Not decided</option>
+            <option value="away" ${(res.winners || {})[g.id] === 'away' ? 'selected' : ''}>${escapeHtml(nick(g.away))}</option>
+            <option value="home" ${(res.winners || {})[g.id] === 'home' ? 'selected' : ''}>${escapeHtml(nick(g.home))}</option>
+            <option value="tie" ${(res.winners || {})[g.id] === 'tie' ? 'selected' : ''}>🤝 Tie</option></select></td>
+          <td><input type="number" min="0" max="150" data-td-total="${escapeHtml(g.id)}" value="${typeof (res.totals || {})[g.id] === 'number' ? res.totals[g.id] : ''}" placeholder="—" style="max-width:100px;"></td>
+          <td><select data-td-ot="${escapeHtml(g.id)}"><option value="">Not known</option>
+            <option value="no" ${(res.ot || {})[g.id] === false ? 'selected' : ''}>No</option>
+            <option value="yes" ${(res.ot || {})[g.id] === true ? 'selected' : ''}>Yes</option></select></td>
+        </tr>`).join('')}</tbody></table></div>
+      <p class="muted" style="font-size:13px;">${d.sum !== null ? `🥧 Most points: <strong>${d.high.map(id => escapeHtml(shortG(games.find(g => g.id === id)))).join(' / ')}</strong> · 😴 Fewest: <strong>${d.low.map(id => escapeHtml(shortG(games.find(g => g.id === id)))).join(' / ')}</strong> · 🦃 Leftovers total: <strong>${d.sum}</strong>` : 'Pie Fight, Food Coma and the Leftovers total appear once every game has a total.'}${d.otAnswer ? ` · 🍽️ Overtime: <strong>${d.otAnswer}</strong>` : ''}</p>
+      <div class="adm-actions"><button id="tdSaveResults" class="amber">Save results</button></div>
+      <div id="tdResBanner" style="margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="adm-card-title">3. Entries &amp; live leaderboard</div>
+      ${rows.length ? `<div class="adm-scroll"><table class="adm-entries">
+        <thead><tr><th>#</th><th>Player</th>${games.map(g => `<th>${escapeHtml(nick(g.home))}</th>`).join('')}<th>🥧</th><th>😴</th><th>🍽️</th><th>🦃</th><th style="text-align:right;">Pts</th><th></th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td class="rk">${anyResults ? (r.rank === 1 ? '🦃' : r.rank) : ''}</td>
+          <td><strong>${escapeHtml(r.p.playerName)}</strong></td>
+          ${r.marks.filter(m => m.kind === 'win').map(m => `<td>${m.wish ? '🦴' : ''}${cell(m.state, nick(mcTeam(games.find(g => g.id === m.gameId), m.side)))}</td>`).join('')}
+          ${['pieFight', 'foodComa'].map(k => { const m = r.marks.find(x => x.kind === k); return `<td>${cell(m.state, shortG(games.find(g => g.id === m.gameId)))}</td>`; }).join('')}
+          <td>${(m => cell(m.state, m.value || '—'))(r.marks.find(x => x.kind === 'overtime'))}</td>
+          <td>${typeof r.p.totalGuess === 'number' ? r.p.totalGuess : '—'}${r.off !== null ? ` <span class="${r.closest ? 'ok' : 'muted'}">(${r.closest ? 'closest' : 'off ' + r.off})</span>` : ''}</td>
+          <td class="pts">${r.points}<span class="muted" style="font-size:11px;">/${max}</span></td>
+          <td><button class="secondary" data-td-remove="${escapeHtml(r.p.playerId)}" title="Remove this entry">✕</button></td>
+        </tr>`).join('')}</tbody></table></div>` : `<p class="muted">No entries yet.</p>`}
+      ${missing.length ? `<p class="muted" style="margin-bottom:0;">⏳ Haven't entered: ${missing.map(p => escapeHtml(p.name)).join(', ')}</p>` : ''}
+      <div id="tdEntryBanner" style="margin-top:8px;"></div>
+    </div>` : ''}`;
+
+  wireCompPicker(list);
+
+  document.getElementById('tdWeek').onchange = e => { Object.assign(ev, { weekId: e.target.value, games: [] }); renderMiniComp(list); };
+
+  // Default the close time to the earliest kickoff among the ticked games.
+  area.querySelectorAll('[data-td-game]').forEach(cb => cb.addEventListener('change', () => {
+    const lock = document.getElementById('tdLock');
+    if (lock.value) return;
+    const ids = [...area.querySelectorAll('[data-td-game]:checked')].map(x => x.dataset.tdGame);
+    const kicks = wkGames.filter(g => ids.includes(g.id) && g.kickoffAt).map(g => admToDate(g.kickoffAt).getTime());
+    if (kicks.length) lock.value = admLocalInput(new Date(Math.min(...kicks)));
+  }));
+
+  document.getElementById('tdSaveSetup').onclick = async () => {
+    const b = document.getElementById('tdSetupBanner');
+    const ids = [...area.querySelectorAll('[data-td-game]:checked')].map(x => x.dataset.tdGame);
+    if (ids.length < 2) { b.innerHTML = `<div class="banner error">Tick at least 2 games.</div>`; return; }
+    const newGames = wkGames.filter(g => ids.includes(g.id))
+      .sort((x, y) => (admToDate(x.kickoffAt) || 0) - (admToDate(y.kickoffAt) || 0))
+      .map(g => ({ id: g.id, away: g.away, home: g.home, ...(g.kickoffAt ? { kickoffAt: g.kickoffAt } : {}) }));
+    const same = newGames.length === games.length && newGames.every(g => chosen.has(g.id));
+    if (!same && entries.length && !confirm(`${entries.length} kid(s) have already entered. Changing the games means their picks for removed games won't count. Continue?`)) return;
+    const lockVal = document.getElementById('tdLock').value;
+    try {
+      await db.collection('events').doc(ev.id).set({
+        name: 'Turducken Tussle', type: 'turducken', weekId: document.getElementById('tdWeek').value,
+        games: newGames, lockAt: lockVal ? firebase.firestore.Timestamp.fromDate(new Date(lockVal)) : null,
+        locked: !!ev.locked, results: same ? res : {}
+      });
+      await loadMinisTab();
+      document.getElementById('tdSetupBanner').innerHTML = `<div class="banner success">Setup saved: ${newGames.length} games, up to ${newGames.length + 5} points.</div>`;
+    } catch (e) { console.error(e); b.innerHTML = `<div class="banner error">Save failed. Check that the Firestore rules are published.</div>`; }
+  };
+
+  const tl = document.getElementById('tdToggleLock');
+  if (tl) tl.onclick = async () => { await db.collection('events').doc(ev.id).update({ locked: !ev.locked }); await loadMinisTab(); };
+
+  const sr = document.getElementById('tdSaveResults');
+  if (sr) sr.onclick = async () => {
+    const winners = {}, totals = {}, ot = {};
+    area.querySelectorAll('[data-td-win]').forEach(s => { if (s.value) winners[s.dataset.tdWin] = s.value; });
+    area.querySelectorAll('[data-td-total]').forEach(i => { if (i.value !== '') totals[i.dataset.tdTotal] = parseInt(i.value, 10); });
+    area.querySelectorAll('[data-td-ot]').forEach(s => { if (s.value) ot[s.dataset.tdOt] = s.value === 'yes'; });
+    try {
+      await db.collection('events').doc(ev.id).update({ results: { winners, totals, ot } });
+      await loadMinisTab();
+      const done = turduckenDerived({ ...ev, results: { winners, totals, ot } }).final;
+      document.getElementById('tdResBanner').innerHTML = `<div class="banner success">Results saved.${done ? ' 🏆 Everything is in, so the champion is crowned on the Turducken Tussle page and in the Hall of Fame.' : ''}</div>`;
+    } catch (e) { console.error(e); document.getElementById('tdResBanner').innerHTML = `<div class="banner error">Save failed.</div>`; }
+  };
+
+  area.querySelectorAll('[data-td-remove]').forEach(btn => btn.addEventListener('click', async () => {
+    const r = rows.find(x => x.p.playerId === btn.dataset.tdRemove);
+    if (!confirm(`Remove ${r.p.playerName}'s Turducken Tussle entry? This can't be undone.`)) return;
+    try { await db.collection('eventPicks').doc(`${ev.id}_${r.p.playerId}`).delete(); await loadMinisTab(); }
+    catch (e) { console.error(e); document.getElementById('tdEntryBanner').innerHTML = `<div class="banner error">Couldn't remove that entry.</div>`; }
   }));
 }
 

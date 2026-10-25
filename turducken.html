@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Turducken Tussle — Pick League</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* TIE-SUPPORT-V1: a tied game counts as a win for both teams, shown in purple */
+  .pick-chip.pick-tie, .hb-mark.tie { border:2px solid #7B4FC9 !important; background:#F1EAFD !important; color:#5B2EA6 !important; text-decoration:none !important; }
+  .team-tile.tie-win { border-color:#7B4FC9 !important; background:#F1EAFD !important; box-shadow:0 0 0 2px #7B4FC9 inset; }
+  .tally-row.tie .tally-fill { background:#7B4FC9 !important; }
+  .tie-note { color:#5B2EA6; font-weight:600; }
+</style>
+</head>
+<body>
+
+<div id="mascotFlankLeft" style="position:absolute; left:20px; width:130px; display:none; flex-direction:column; align-items:flex-start; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<div id="mascotFlankRight" style="position:absolute; right:20px; width:130px; display:none; flex-direction:column; align-items:flex-end; gap:20px; z-index:0; pointer-events:none;" aria-hidden="true"></div>
+<script>
+  (function () {
+    var leftTeams = ['bills','dolphins','patriots','jets','ravens','bengals','browns','steelers','texans','colts','jaguars','titans','broncos','chiefs','raiders','chargers'];
+    var rightTeams = ['cowboys','giants','eagles','commanders','bears','lions','packers','vikings','falcons','panthers','saints','buccaneers','cardinals','rams','49ers','seahawks'];
+    var REPEATS = 5; // repeats the 16-team sequence this many times down the page
+
+    function imgTag(team, mirror) {
+      var t = mirror ? 'transform:scaleX(-1); ' : '';
+      return '<img src="' + team + '.png" alt="" style="width:100%; height:auto; ' + t + 'filter:drop-shadow(0 6px 10px rgba(7,14,36,0.28));">';
+    }
+
+    function buildFlankHTML(teams, mirror) {
+      var html = '';
+      for (var r = 0; r < REPEATS; r++) {
+        teams.forEach(function (team) { html += imgTag(team, mirror); });
+      }
+      return html;
+    }
+
+    var leftEl = document.getElementById('mascotFlankLeft');
+    var rightEl = document.getElementById('mascotFlankRight');
+    if (leftEl) leftEl.innerHTML = buildFlankHTML(leftTeams, false);
+    if (rightEl) rightEl.innerHTML = buildFlankHTML(rightTeams, true);
+
+    function positionFlanks() {
+      var header = document.querySelector('.scoreboard');
+      var top = (header ? header.offsetHeight : 260) + 40;
+      if (leftEl) leftEl.style.top = top + 'px';
+      if (rightEl) rightEl.style.top = top + 'px';
+    }
+
+    function updateMascotFlanks() {
+      var show = window.innerWidth >= 900;
+      if (leftEl) leftEl.style.display = show ? 'flex' : 'none';
+      if (rightEl) rightEl.style.display = show ? 'flex' : 'none';
+    }
+
+    positionFlanks();
+    updateMascotFlanks();
+    window.addEventListener('resize', function () { positionFlanks(); updateMascotFlanks(); });
+    window.addEventListener('load', positionFlanks);
+
+    function updateWideLayout() {
+      var wide = window.innerWidth >= 1100;
+      document.querySelectorAll('.wrap, .scoreboard-inner').forEach(function (el) {
+        el.style.maxWidth = wide ? '1040px' : '';
+      });
+      document.body.style.fontSize = wide ? '17px' : '';
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', updateWideLayout);
+    } else {
+      updateWideLayout();
+    }
+    window.addEventListener('resize', updateWideLayout);
+  })();
+</script>
+
+<header class="scoreboard">
+  <img class="banner-logo" src="turducken-header.jpg" onerror="this.onerror=null; this.src='banner.jpg';" alt="Any Given Sundae Turducken Tussle" style="display:block;width:100%;max-width:none;height:auto;margin:0;">
+  <div class="scoreboard-inner">
+    <p class="league-name" id="leagueTag">AMERICAN THANKSGIVING MINI-COMP</p>
+    <h1 class="week-display"><span class="digits">TURDUCKEN TUSSLE</span></h1>
+    <nav class="nav-row">
+      <a class="nav-link" href="index.html">Make Picks</a>
+      <a class="nav-link" href="standings.html">Standings</a>
+      <a class="nav-link" href="scoop.html">The Scoop</a>
+      <a class="nav-link" href="harvest.html">Harvest Bowl</a>
+      <a class="nav-link current" href="turducken.html">Turducken Tussle</a>
+      <a class="nav-link" href="halloffame.html">Hall of Fame</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  /* Turducken Tussle styles live inline so a cached styles.css can't break them */
+  :root { --roast:#7A4A22; --roast-dark:#4E2E14; --duck:#1D6E6A; --duck-dark:#134C49; --yolk:#F2B632; --cran:#B3263A; --crust:#FFF4E2; }
+  main.wrap { position:relative; z-index:1; }
+  .scoreboard .digits { color:var(--yolk); }
+
+  /* Three layers, like the bird itself: turkey (roast), duck (teal), chicken (yolk) */
+  .td-layers { height:10px; border-radius:10px 10px 0 0; margin:-18px -18px 16px;
+    background:linear-gradient(90deg, var(--roast) 0 33.3%, var(--duck) 33.3% 66.6%, var(--yolk) 66.6% 100%); }
+  .td-hero { text-align:center; background:var(--crust); border:2px solid var(--roast); }
+  .td-hero .birds { font-size:40px; line-height:1; letter-spacing:4px; }
+  .td-hero h2 { font-family:var(--font-display); font-weight:400; font-size:30px; color:var(--roast-dark); margin:8px 0 4px; letter-spacing:.5px; }
+  .td-hero p { margin:4px auto; max-width:48ch; }
+  .td-prize { display:inline-block; margin:10px auto 6px !important; background:var(--duck); color:var(--yolk); font-family:var(--font-fun); font-weight:700; font-size:16px; padding:8px 16px; border-radius:12px; }
+  .td-countdown { display:inline-block; margin-top:10px; background:var(--roast-dark); color:white; font-family:var(--font-fun); font-weight:600; padding:6px 14px; border-radius:999px; font-size:14px; }
+  .td-countdown.closed { background:var(--cran); }
+
+  .td-q { margin-bottom:14px; }
+  .td-q-head { display:flex; align-items:baseline; gap:10px; margin-bottom:8px; }
+  .td-q-num { font-family:var(--font-display); font-size:22px; color:var(--duck); min-width:22px; }
+  .td-q-title { flex:1; font-family:var(--font-fun); font-weight:700; font-size:17px; color:var(--roast-dark); }
+  .td-q-pts { font-size:12px; font-weight:700; color:var(--duck-dark); background:#DDEFEE; padding:3px 9px; border-radius:999px; white-space:nowrap; }
+  .td-q-hint { font-size:13px; color:var(--ink-soft); margin:-2px 0 10px 32px; }
+  .td-when { display:inline-block; font-size:12px; font-weight:700; color:var(--roast); background:#F6E6D3; padding:2px 9px; border-radius:999px; margin:0 0 8px 32px; }
+
+  .td-choices { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; }
+  .td-choice { display:flex; flex-direction:column; align-items:center; gap:5px; padding:12px 8px; background:white; color:var(--roast-dark);
+    border:2px solid var(--line); border-radius:14px; font-family:var(--font-fun); font-weight:600; font-size:15px; cursor:pointer; box-shadow:none; text-align:center; }
+  .td-choice:hover { border-color:var(--duck); background:#F4FBFA; }
+  .td-choice:focus-visible { outline:3px solid var(--roast-dark); outline-offset:2px; }
+  .td-choice.on { border-color:var(--duck); background:#DDEFEE; box-shadow:0 0 0 2px var(--duck) inset; }
+  .td-choice .sub { font-size:11px; font-weight:500; color:var(--ink-soft); }
+  .td-choice[disabled] { opacity:.45; cursor:not-allowed; }
+  .td-yesno .td-choice { font-size:18px; padding:14px 8px; }
+
+  /* The one bold card: the Wishbone */
+  .td-wish { position:relative; overflow:hidden; color:white; border:3px solid var(--yolk);
+    background:radial-gradient(circle at 85% 10%, #2A8E88 0%, var(--duck) 45%, var(--duck-dark) 100%); }
+  .td-wish::after { content:'🦴'; position:absolute; right:-8px; top:-18px; font-size:100px; opacity:.18; transform:rotate(-25deg); pointer-events:none; }
+  .td-wish .td-q-num, .td-wish .td-q-title { color:white; }
+  .td-wish .td-q-pts { background:var(--yolk); color:var(--roast-dark); }
+  .td-wish .td-q-hint { color:#D7EDEB; }
+  .td-wish .td-choice { border-color:rgba(255,255,255,.25); }
+  .td-wish .td-choice.on { background:var(--yolk); border-color:var(--yolk); color:var(--roast-dark); box-shadow:none; }
+
+  .td-guess { display:flex; align-items:center; justify-content:center; gap:10px; }
+  .td-guess button { width:48px; height:48px; border-radius:50%; font-size:24px; padding:0; background:var(--roast); }
+  .td-guess input[type="number"] { width:120px; text-align:center; font-family:var(--font-display); font-size:30px; padding:6px; border:2px solid var(--line); border-radius:12px; }
+
+  .td-save-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .td-save-row button { background:var(--duck); font-size:17px; padding:12px 22px; }
+  .td-save-row button:hover { background:var(--duck-dark); }
+  .td-progress { font-family:var(--font-fun); font-weight:600; color:var(--roast-dark); }
+
+  .td-viewer { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .td-viewer .who { flex:1; font-weight:600; }
+  .td-viewer .switch-link { background:none; border:none; color:var(--ink-soft); text-decoration:underline; font-size:13px; padding:4px; box-shadow:none; }
+
+  .td-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px; background:white; margin-bottom:8px; box-shadow:var(--shadow); }
+  .td-row.me { border:2px solid var(--yolk); }
+  .td-rank { font-family:var(--font-display); font-size:22px; color:var(--duck); min-width:34px; text-align:center; }
+  .td-name { flex:1; min-width:0; }
+  .td-name strong { font-family:var(--font-fun); font-size:16px; color:var(--roast-dark); }
+  .td-marks { display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+  .td-mark { font-size:12px; font-weight:600; padding:2px 8px; border-radius:999px; background:#F2EEF4; color:var(--roast-dark); white-space:nowrap; }
+  .td-mark.yes { background:#DDF3E2; color:#1E6B34; }
+  .td-mark.no { background:#F1E4E6; color:#8A2E3B; text-decoration:line-through; }
+  .td-mark.tie { background:#F1EAFD; color:#5B2EA6; border:1px solid #7B4FC9; }
+  .td-mark.wish { box-shadow:0 0 0 2px var(--yolk) inset; }
+  .td-pts { font-family:var(--font-display); font-size:26px; color:var(--roast); text-align:right; }
+  .td-pts small { display:block; font-family:var(--font-body); font-size:11px; color:var(--ink-soft); }
+
+  .td-champ { position:relative; overflow:hidden; text-align:center; padding:26px 20px 22px; margin:6px 0 22px; border:4px solid var(--yolk); border-radius:20px; color:white;
+    background:radial-gradient(circle at 50% 0%, #2A8E88 0%, var(--duck) 50%, var(--duck-dark) 100%); box-shadow:0 10px 26px rgba(19,76,73,.3); }
+  .td-champ-kicker { font-family:var(--font-fun); font-weight:700; letter-spacing:2px; font-size:13px; color:var(--yolk); text-transform:uppercase; }
+  .td-champ-title { font-family:var(--font-display); font-weight:400; font-size:34px; color:white; margin:2px 0 14px; line-height:1.05; }
+  .td-champ-winners { display:flex; justify-content:center; flex-wrap:wrap; gap:18px; }
+  .td-champ-one { display:flex; flex-direction:column; align-items:center; gap:6px; min-width:150px; }
+  .td-champ-one .trophy { font-size:46px; line-height:1; }
+  .td-champ-name { font-family:var(--font-fun); font-weight:700; font-size:24px; }
+  .td-champ-kid { font-size:14px; color:#CFE7E5; }
+  .td-champ-stats { font-size:14px; color:var(--yolk); font-weight:600; }
+  .td-champ-prize { display:inline-block; margin-top:14px; background:var(--yolk); color:var(--roast-dark); font-family:var(--font-fun); font-weight:700; padding:7px 16px; border-radius:999px; font-size:15px; }
+  .td-champ-why { font-size:12px; color:#CFE7E5; margin-top:10px; }
+
+  @media (max-width:520px) {
+    .td-hero h2 { font-size:26px; }
+    .td-q-hint, .td-when { margin-left:0; }
+    .td-choices { grid-template-columns:1fr 1fr; }
+    .td-champ-title { font-size:28px; }
+  }
+</style>
+
+<main class="wrap">
+  <div class="card td-hero">
+    <div class="td-layers" aria-hidden="true"></div>
+    <div class="birds" aria-hidden="true">🦃🦆🐔</div>
+    <h2>Welcome to the Turducken Tussle</h2>
+    <p>A chicken inside a duck inside a turkey, and five big games stuffed into one Thanksgiving weekend. This mini comp is all on its own: it doesn't count toward the season standings, and everyone starts at zero.</p>
+    <p class="td-prize">🏆 The Turducken Tussle champion wins their own special prize!</p>
+    <p class="muted" style="font-size:14px;" id="heroRules">Pick the winners, then a few quick fun ones. If there's a tie, the closest Leftovers Guess wins.</p>
+    <span class="td-countdown" id="countdown" style="display:none;"></span>
+  </div>
+
+  <div id="loadingNote" class="muted" style="text-align:center; padding:24px;">Loading…</div>
+  <div id="notReady" style="display:none;"></div>
+
+  <div class="card" id="gateCard" style="display:none; border:2px dashed var(--duck);">
+    <h2 class="section-title" style="margin-top:0;">Who's tussling?</h2>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <select id="playerSelect" style="flex:1; min-width:180px;"></select>
+      <input type="text" id="pinInput" placeholder="6-digit PIN" inputmode="numeric" maxlength="6" style="max-width:150px;">
+      <button id="enterBtn" style="background:var(--duck);">Let me in</button>
+    </div>
+    <div id="gateBanner" style="margin-top:12px;"></div>
+  </div>
+
+  <div id="playArea" style="display:none;">
+    <div class="card td-viewer">
+      <span id="viewerBadge"></span>
+      <div class="who" id="viewerName"></div>
+      <button class="switch-link" id="switchBtn">Not you?</button>
+    </div>
+    <div id="questions"></div>
+  </div>
+
+  <div id="boardArea"></div>
+
+  <img src="turducken-poster.jpg" onerror="this.remove()" alt="Any Given Sundae Turducken Tussle poster" style="display:block; width:100%; height:auto; border-radius:16px; box-shadow:0 6px 18px rgba(16,31,69,0.14); margin:18px 0;">
+
+  <div id="adminArea"></div>
+</main>
+
+<p class="footer-note">🦃🦆🐔 The Turducken Tussle is its own competition with its own prize. It doesn't count in the season standings.</p>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script>
+// TURDUCKEN-PAGE-V1  (search View Source for this to confirm the live version)
+let EVENT_ID = 'turducken2026';   // becomes turducken<season year> on load
+let players = [], playersById = {};
+let event = null, eventPicks = [], viewer = null, isAdminUser = false;
+let draft = {};
+
+function freshDraft(e) {
+  return e ? { winners: { ...(e.winners || {}) }, wishbone: e.wishbone || null, pieFight: e.pieFight || null,
+                foodComa: e.foodComa || null, overtime: e.overtime || null,
+                totalGuess: typeof e.totalGuess === 'number' ? e.totalGuess : null }
+           : { winners: {}, wishbone: null, pieFight: null, foodComa: null, overtime: null, totalGuess: null };
+}
+
+// ---------- data ----------
+async function loadEvent() {
+  const doc = await db.collection('events').doc(EVENT_ID).get();
+  event = doc.exists ? doc.data() : null;
+}
+async function loadEventPicks() {
+  const snap = await db.collection('eventPicks').where('eventId', '==', EVENT_ID).get();
+  eventPicks = snap.docs.map(d => d.data()).filter(p => playersById[p.playerId]);   // skip removed players
+}
+function toDate(ts) { return ts ? (ts.toDate ? ts.toDate() : new Date(ts)) : null; }
+function isEventLocked() {
+  if (!event) return false;
+  if (event.locked) return true;
+  const d = toDate(event.lockAt);
+  return !!d && d.getTime() <= Date.now();
+}
+function games() { return (event && event.games) || []; }
+function gameById(id) { return games().find(g => g.id === id); }
+function nick(name) { const w = String(name || '').trim().split(/\s+/); return w[w.length - 1]; }
+function teamFor(g, side) { return !g ? '' : side === 'away' ? g.away : side === 'home' ? g.home : ''; }
+function shortGame(g) { return g ? `${nick(g.away)} @ ${nick(g.home)}` : '—'; }
+
+/** "Wed night", "Thu lunch", "Black Friday" etc, plus a little flavour for the traditions. */
+function gameWhen(g) {
+  const d = toDate(g.kickoffAt);
+  let when = '';
+  if (d) {
+    const day = d.toLocaleDateString([], { weekday: 'short' });
+    const h = d.getHours();
+    const slot = h < 15 ? 'lunch' : h < 18 ? 'afternoon' : 'night';
+    when = day === 'Fri' ? 'Black Friday' : `${day} ${slot}`;
+    when += ' · ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  const keys = [g.away, g.home].map(x => nick(x).toLowerCase());
+  const flavour = keys.includes('lions') ? ' · 🦁 the Lions’ Thanksgiving tradition'
+    : keys.includes('cowboys') ? ' · ⭐ Dallas always gets the late-afternoon slot'
+    : d && d.toLocaleDateString([], { weekday: 'short' }) === 'Wed' ? ' · the appetizer 🥨'
+    : d && d.toLocaleDateString([], { weekday: 'short' }) === 'Fri' ? ' · leftovers football 🥪' : '';
+  return when + flavour;
+}
+
+function answeredCount() {
+  let n = games().filter(g => draft.winners[g.id]).length;
+  ['wishbone', 'pieFight', 'foodComa', 'overtime'].forEach(k => { if (draft[k]) n++; });
+  if (typeof draft.totalGuess === 'number') n++;
+  return n;
+}
+function totalQuestions() { return games().length + 5; }
+
+// ---------- page ----------
+async function init() {
+  await ensureSignedIn();
+  EVENT_ID = 'turducken' + await getSeasonYear();
+  const user = auth.currentUser;
+  isAdminUser = !!(user && !user.isAnonymous && ADMIN_EMAILS.includes(user.email));
+  players = await getPlayers();
+  players.forEach(p => { playersById[p.id] = p; });
+  try { await Promise.all([loadEvent(), loadEventPicks()]); }
+  catch (e) { console.error(e); event = null; eventPicks = []; }
+  document.getElementById('loadingNote').style.display = 'none';
+  renderAll();
+  if (isAdminUser) {
+    document.getElementById('adminArea').innerHTML = `<div class="card" style="text-align:center; border:2px dashed var(--navy);">
+      🔧 Set up games and enter results on the <a href="admin.html#minis"><strong>Admin page → Mini Comps</strong></a> tab.</div>`;
+  }
+  setInterval(renderCountdown, 30000);
+}
+
+function renderAll() {
+  renderCountdown();
+  const notReady = document.getElementById('notReady');
+  if (!event || games().length < 2) {
+    notReady.style.display = 'block';
+    notReady.innerHTML = `<div class="card" style="text-align:center;"><p style="font-size:40px; margin:0;">🦃🦆🐔</p>
+      <p><strong>The Turducken is still being stuffed.</strong><br>The games aren't set up yet. Check back soon!</p></div>`;
+    ['gateCard', 'playArea'].forEach(id => document.getElementById(id).style.display = 'none');
+    document.getElementById('boardArea').innerHTML = '';
+    return;
+  }
+  notReady.style.display = 'none';
+  document.getElementById('heroRules').textContent =
+    `${games().length} games, ${totalQuestions()} quick picks and up to ${turduckenMaxPoints(event)} points. Some take football smarts, some are pure luck. If there's a tie, the closest Leftovers Guess wins.`;
+  if (isEventLocked()) {
+    ['gateCard', 'playArea'].forEach(id => document.getElementById(id).style.display = 'none');
+  } else if (viewer) {
+    renderQuestions();
+  } else {
+    setupGate();
+  }
+  renderBoard();
+}
+
+function renderCountdown() {
+  const el = document.getElementById('countdown');
+  const d = event && toDate(event.lockAt);
+  if (!event || (!d && !event.locked)) { el.style.display = 'none'; return; }
+  el.style.display = 'inline-block';
+  if (isEventLocked()) { el.classList.add('closed'); el.textContent = '🔒 Picks are closed. Loosen your belt and enjoy!'; return; }
+  el.classList.remove('closed');
+  const ms = d.getTime() - Date.now();
+  const days = Math.floor(ms / 86400000), hrs = Math.floor(ms / 3600000) % 24, mins = Math.floor(ms / 60000) % 60;
+  const left = days > 0 ? `${days}d ${hrs}h` : hrs > 0 ? `${hrs}h ${mins}m` : `${mins}m`;
+  el.textContent = `⏰ Picks close ${d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })} (${left} left)`;
+}
+
+// ---------- sign in ----------
+function setupGate() {
+  document.getElementById('gateCard').style.display = 'block';
+  document.getElementById('playArea').style.display = 'none';
+  const sel = document.getElementById('playerSelect');
+  sel.innerHTML = '<option value="">Choose your team name…</option>' +
+    players.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+  document.getElementById('enterBtn').onclick = onEnter;
+  document.getElementById('pinInput').onkeydown = e => { if (e.key === 'Enter') onEnter(); };
+  document.getElementById('switchBtn').onclick = () => {
+    if (viewer) UnlockedPlayers.lock(viewer.id);
+    viewer = null; sel.value = ''; setupGate();
+  };
+  const savedId = LocalPlayer.get();
+  const saved = savedId && playersById[savedId];
+  if (saved) sel.value = saved.id;
+  if (saved && saved.pinHash && UnlockedPlayers.isUnlocked(saved.id) && !viewer) enterAs(saved);
+}
+
+async function onEnter() {
+  const banner = document.getElementById('gateBanner');
+  const id = document.getElementById('playerSelect').value;
+  const pin = document.getElementById('pinInput').value.trim();
+  banner.innerHTML = '';
+  if (!id) { banner.innerHTML = `<div class="banner error">Pick your team name first.</div>`; return; }
+  const player = playersById[id];
+  if (!player.pinHash) { banner.innerHTML = `<div class="banner error">Set up your PIN on the <a href="index.html">Make Picks</a> page first.</div>`; return; }
+  if (!(await verifyPlayerPin(player, pin))) { banner.innerHTML = `<div class="banner error">That PIN doesn't match. Try again.</div>`; return; }
+  LocalPlayer.set(player.id);
+  UnlockedPlayers.unlock(player.id);
+  document.getElementById('pinInput').value = '';
+  enterAs(player);
+}
+
+function enterAs(player) {
+  viewer = player;
+  draft = freshDraft(eventPicks.find(p => p.playerId === player.id));
+  document.getElementById('gateCard').style.display = 'none';
+  document.getElementById('playArea').style.display = 'block';
+  document.getElementById('viewerBadge').innerHTML = playerBadgeImgTag(player, 40);
+  document.getElementById('viewerName').textContent = player.name;
+  renderQuestions();
+}
+
+// ---------- the picks ----------
+function choice(attrs, on, label, sub, logo, disabled) {
+  return `<button class="td-choice ${on ? 'on' : ''}" ${attrs} aria-pressed="${!!on}" ${disabled ? 'disabled' : ''}>
+    ${logo || ''}<span>${label}</span>${sub ? `<span class="sub">${sub}</span>` : ''}</button>`;
+}
+function gameChoices(kind, current) {
+  return `<div class="td-choices">${games().map(g => choice(`data-kind="${kind}" data-val="${escapeHtml(g.id)}"`, current === g.id,
+    escapeHtml(shortGame(g)), escapeHtml(gameWhen(g).split(' · ')[0]))).join('')}</div>`;
+}
+
+function renderQuestions() {
+  const existing = eventPicks.find(p => p.playerId === viewer.id);
+  let n = 0;
+  const q = [];
+
+  games().forEach(g => {
+    n++;
+    q.push(`<div class="card td-q">
+      <div class="td-q-head"><span class="td-q-num">${n}</span><span class="td-q-title">Who wins?</span><span class="td-q-pts">1 pt</span></div>
+      <div class="td-when">${escapeHtml(gameWhen(g) || 'Thanksgiving week')}</div>
+      <div class="td-choices">${['away', 'home'].map(side => choice(`data-kind="win" data-game="${escapeHtml(g.id)}" data-val="${side}"`,
+        draft.winners[g.id] === side, escapeHtml(teamFor(g, side)), side, teamLogoImgTag(teamFor(g, side), 44))).join('')}</div>
+    </div>`);
+  });
+
+  n++;
+  const picked = games().filter(g => draft.winners[g.id]);
+  q.push(`<div class="card td-q td-wish">
+    <div class="td-q-head"><span class="td-q-num">${n}</span><span class="td-q-title">The Wishbone</span><span class="td-q-pts">counts double</span></div>
+    <p class="td-q-hint">Pull the wishbone on the pick you're SUREST about. If that team wins, it's worth 2 points instead of 1.</p>
+    ${picked.length ? `<div class="td-choices">${picked.map(g => choice(`data-kind="wishbone" data-val="${escapeHtml(g.id)}"`, draft.wishbone === g.id,
+        escapeHtml(teamFor(g, draft.winners[g.id])), escapeHtml(shortGame(g)), teamLogoImgTag(teamFor(g, draft.winners[g.id]), 36))).join('')}</div>`
+      : `<p style="margin:0; opacity:.85;">Pick some winners above first, then choose your Wishbone here.</p>`}
+  </div>`);
+
+  n++;
+  q.push(`<div class="card td-q">
+    <div class="td-q-head"><span class="td-q-num">${n}</span><span class="td-q-title">🥧 Pie Fight: which game will have the MOST points?</span><span class="td-q-pts">1 pt</span></div>
+    <p class="td-q-hint">Add both teams' scores together. Which game turns into a food fight?</p>
+    ${gameChoices('pieFight', draft.pieFight)}
+  </div>`);
+
+  n++;
+  q.push(`<div class="card td-q">
+    <div class="td-q-head"><span class="td-q-num">${n}</span><span class="td-q-title">😴 Food Coma: which game will have the FEWEST points?</span><span class="td-q-pts">1 pt</span></div>
+    <p class="td-q-hint">The snooziest game of the weekend, when everyone's napping on the couch.</p>
+    ${gameChoices('foodComa', draft.foodComa)}
+  </div>`);
+
+  n++;
+  q.push(`<div class="card td-q">
+    <div class="td-q-head"><span class="td-q-num">${n}</span><span class="td-q-title">🍽️ Second Helpings: will ANY game go to overtime?</span><span class="td-q-pts">1 pt</span></div>
+    <p class="td-q-hint">Overtime happens when a game is tied when time runs out. It's rare, so this one is a gamble!</p>
+    <div class="td-choices td-yesno">
+      ${choice('data-kind="overtime" data-val="yes"', draft.overtime === 'yes', 'Yes! 🍗', 'more football, please')}
+      ${choice('data-kind="overtime" data-val="no"', draft.overtime === 'no', 'No 🙅', 'all done in regular time')}
+    </div>
+  </div>`);
+
+  n++;
+  const typical = games().length * 45;
+  q.push(`<div class="card td-q">
+    <div class="td-q-head"><span class="td-q-num">${n}</span><span class="td-q-title">🦃 The Leftovers Guess: total points in ALL ${games().length} games?</span><span class="td-q-pts">+1 if closest</span></div>
+    <p class="td-q-hint">Add up every score from every game. A typical NFL game has about 45 points, so ${games().length} games usually lands somewhere around ${typical - 30}–${typical + 30}. The closest guess also breaks any ties!</p>
+    <div class="td-guess">
+      <button data-guess="-5" aria-label="5 less">−</button>
+      <input type="number" id="guessInput" min="0" max="500" inputmode="numeric" value="${typeof draft.totalGuess === 'number' ? draft.totalGuess : ''}" placeholder="?" aria-label="Leftovers guess">
+      <button data-guess="5" aria-label="5 more">+</button>
+    </div>
+  </div>`);
+
+  q.push(`<div class="card">
+    <div class="td-save-row">
+      <button id="saveBtn">${existing ? 'Update my Tussle picks 🦃' : 'Save my Tussle picks 🦃'}</button>
+      <span class="td-progress" id="progress">${answeredCount()} of ${totalQuestions()} answered</span>
+    </div>
+    <div id="saveBanner" style="margin-top:10px;">${existing ? `<div class="banner info">✅ Your picks are in. You can change them until picks close.</div>` : ''}</div>
+  </div>`);
+
+  const wrap = document.getElementById('questions');
+  wrap.innerHTML = q.join('');
+
+  wrap.querySelectorAll('.td-choice').forEach(b => b.addEventListener('click', () => {
+    const { kind, game, val } = b.dataset;
+    if (kind === 'win') {
+      draft.winners[game] = val;
+    } else {
+      draft[kind] = val;
+    }
+    // re-draw so the Wishbone choices follow the winners picked
+    const y = window.scrollY; renderQuestions(); window.scrollTo(0, y);
+  }));
+  const input = document.getElementById('guessInput');
+  input.addEventListener('input', () => {
+    const v = parseInt(input.value, 10);
+    draft.totalGuess = Number.isFinite(v) ? Math.max(0, Math.min(500, v)) : null;
+    updateProgress();
+  });
+  wrap.querySelectorAll('[data-guess]').forEach(b => b.addEventListener('click', () => {
+    const base = typeof draft.totalGuess === 'number' ? draft.totalGuess : typical;
+    draft.totalGuess = Math.max(0, Math.min(500, typeof draft.totalGuess === 'number' ? base + parseInt(b.dataset.guess, 10) : base));
+    input.value = draft.totalGuess;
+    updateProgress();
+  }));
+  document.getElementById('saveBtn').addEventListener('click', saveDraft);
+}
+
+function updateProgress() {
+  const el = document.getElementById('progress');
+  if (el) el.textContent = `${answeredCount()} of ${totalQuestions()} answered`;
+}
+
+async function saveDraft() {
+  const banner = document.getElementById('saveBanner');
+  if (isEventLocked()) { banner.innerHTML = `<div class="banner error">Sorry, picks are closed now.</div>`; return; }
+  if (draft.wishbone && !draft.winners[draft.wishbone]) draft.wishbone = null;
+  if (answeredCount() < totalQuestions()) {
+    banner.innerHTML = `<div class="banner error">Answer all ${totalQuestions()} first (${answeredCount()} done).</div>`; return;
+  }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  try {
+    await db.collection('eventPicks').doc(`${EVENT_ID}_${viewer.id}`).set({
+      eventId: EVENT_ID, playerId: viewer.id, playerName: viewer.name, pinHash: viewer.pinHash,
+      winners: draft.winners, wishbone: draft.wishbone, pieFight: draft.pieFight, foodComa: draft.foodComa,
+      overtime: draft.overtime, totalGuess: draft.totalGuess,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await loadEventPicks();
+    renderQuestions(); renderBoard();
+    document.getElementById('saveBanner').innerHTML = `<div class="banner success">🦃🦆🐔 Gobble, quack, cluck! Your Tussle picks are saved. You can change them until picks close.</div>`;
+  } catch (e) {
+    console.error(e);
+    banner.innerHTML = `<div class="banner error">Couldn't save. Picks may have closed, or try refreshing.</div>`;
+    btn.disabled = false;
+  }
+}
+
+// ---------- the Tussle Table ----------
+function buildBoard() {
+  const d = turduckenDerived(event);
+  const rows = eventPicks.map(p => ({ p, ...scoreTurduckenEntry(event, p) }));
+  const offs = rows.filter(r => r.off !== null).map(r => r.off);
+  const best = offs.length ? Math.min(...offs) : null;
+  rows.forEach(r => { r.closest = best !== null && r.off === best; if (r.closest) r.points += 1; });
+  rows.sort((a, b) => b.points - a.points || (a.off ?? 9999) - (b.off ?? 9999) || a.p.playerName.localeCompare(b.p.playerName));
+  rows.forEach((r, i) => {
+    const prev = rows[i - 1];
+    r.rank = (!prev || prev.points !== r.points || (prev.off ?? 9999) !== (r.off ?? 9999)) ? i + 1 : prev.rank;
+  });
+  return { rows, d };
+}
+
+function markHtml(m, p) {
+  if (m.kind === 'win') {
+    const g = gameById(m.gameId);
+    return `<span class="td-mark ${m.state === 'pending' ? '' : m.state} ${m.wish ? 'wish' : ''}" ${m.wish ? 'title="Wishbone: counts double"' : ''}>${m.wish ? '🦴 ' : ''}${escapeHtml(nick(teamFor(g, m.side)) || '—')}</span>`;
+  }
+  if (m.kind === 'pieFight') return `<span class="td-mark ${m.state === 'pending' ? '' : m.state}">🥧 ${escapeHtml(shortGame(gameById(m.gameId)))}</span>`;
+  if (m.kind === 'foodComa') return `<span class="td-mark ${m.state === 'pending' ? '' : m.state}">😴 ${escapeHtml(shortGame(gameById(m.gameId)))}</span>`;
+  if (m.kind === 'overtime') return `<span class="td-mark ${m.state === 'pending' ? '' : m.state}">🍽️ OT: ${m.value === 'yes' ? 'yes' : 'no'}</span>`;
+  return '';
+}
+
+function renderBoard() {
+  const area = document.getElementById('boardArea');
+  if (!event || games().length < 2) { area.innerHTML = ''; return; }
+
+  if (!isEventLocked()) {
+    const names = eventPicks.map(p => escapeHtml(p.playerName)).sort();
+    area.innerHTML = `<div class="card">
+      <h2 class="section-title" style="margin-top:0;">🍽️ At the table so far</h2>
+      <p style="margin:0;">${eventPicks.length ? `<strong>${eventPicks.length} of ${players.length}</strong> players are in: ${names.join(', ')}` : 'Nobody yet. Be the first!'}</p>
+      <p class="muted" style="margin-bottom:0;">Everyone's picks get revealed once picks close.</p>
+    </div>`;
+    return;
+  }
+
+  const { rows, d } = buildBoard();
+  const res = event.results || {};
+  const anyResults = Object.keys(res.winners || {}).length || Object.keys(res.totals || {}).length;
+  const max = turduckenMaxPoints(event);
+  area.innerHTML = championBox(rows, d, max) + `
+    <h2 class="section-title">🏆 The Tussle Table</h2>
+    ${d.sum !== null ? `<p class="muted" style="margin-top:-6px;">Leftovers total: <strong>${d.sum}</strong> points across all ${games().length} games${d.otAnswer ? ` · Overtime: <strong>${d.otAnswer}</strong>` : ''}</p>`
+      : anyResults ? '' : `<p class="muted" style="margin-top:-6px;">Picks are locked! Points show up as the games finish.</p>`}
+    ${rows.length === 0 ? `<div class="card"><p>Nobody entered this year.</p></div>` : rows.map(r => {
+      const player = playersById[r.p.playerId];
+      const me = viewer && r.p.playerId === viewer.id;
+      return `<div class="td-row ${me ? 'me' : ''}">
+        <div class="td-rank">${anyResults ? (r.rank === 1 ? '🦃' : r.rank) : ''}</div>
+        ${playerBadgeImgTag(player, 36)}
+        <div class="td-name"><strong>${escapeHtml(r.p.playerName)}</strong>${player && player.kidName ? ` <span class="muted" style="font-size:12px;">${escapeHtml(player.kidName)}</span>` : ''}
+          <div class="td-marks">${r.marks.map(m => markHtml(m, r.p)).join('')}
+            <span class="td-mark ${r.closest ? 'yes' : ''}">🦃 ${typeof r.p.totalGuess === 'number' ? r.p.totalGuess : '—'}${r.off !== null ? (r.closest ? ' (closest!)' : ` (off by ${r.off})`) : ''}</span></div>
+        </div>
+        ${anyResults ? `<div class="td-pts">${r.points}<small>of ${max}</small></div>` : ''}
+      </div>`;
+    }).join('')}`;
+}
+
+function championBox(rows, d, max) {
+  if (!d.final || !rows.length) return '';
+  const champs = rows.filter(r => r.rank === 1);
+  const second = rows.find(r => r.rank !== 1);
+  const tiebreak = second && second.points === champs[0].points;
+  const one = champs.length === 1;
+  return `<div class="td-champ" role="status">
+    <div class="td-champ-kicker">Thanksgiving ${EVENT_ID.replace('turducken', '')}</div>
+    <div class="td-champ-title">${one ? 'Turducken Tussle Champion' : 'Turducken Tussle Co-Champions'}</div>
+    <div class="td-champ-winners">${champs.map(r => {
+      const pl = playersById[r.p.playerId];
+      return `<div class="td-champ-one"><span class="trophy" aria-hidden="true">🏆</span>${playerBadgeImgTag(pl, 64)}
+        <div class="td-champ-name">${escapeHtml(r.p.playerName)}</div>${pl && pl.kidName ? `<div class="td-champ-kid">${escapeHtml(pl.kidName)}</div>` : ''}
+        <div class="td-champ-stats">${r.points} of ${max} points · guessed ${typeof r.p.totalGuess === 'number' ? r.p.totalGuess : '?'} (actual ${d.sum})</div></div>`;
+    }).join('')}</div>
+    <div class="td-champ-prize">🎁 ${one ? 'Wins' : 'Win'} the Turducken Tussle prize!</div>
+    ${tiebreak ? `<div class="td-champ-why">Tied on points, so the closest Leftovers Guess decided it.</div>` : ''}
+  </div>`;
+}
+
+init().catch(err => {
+  console.error(err);
+  document.getElementById('loadingNote').innerHTML = `<div class="banner error">Something went wrong loading the page. Try refreshing.</div>`;
+});
+</script>
+</body>
+</html>
