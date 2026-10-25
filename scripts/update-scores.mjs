@@ -1,5 +1,5 @@
 // ============================================================
-// AUTO-SCORES-V1
+// AUTO-SCORES-V1 · AUTO-LOCK-V1
 // Runs on a schedule from GitHub Actions (.github/workflows/update-scores.yml).
 // Reads final NFL scores from ESPN's public scoreboard and fills in winners on
 // the site. It only fills in winners that are still blank, so anything the
@@ -8,6 +8,9 @@
 // Also fills in mini comp (Harvest Bowl) results: each game's winner, plus the
 // Golden Drumstick game's final total and who scored first. The coin toss
 // stays manual because ESPN doesn't reliably report it.
+//
+// Once every game in a week has a winner, it also locks that week, so nobody has
+// to remember to. (Each game already locks for picks at its own kickoff.)
 //
 // Set DRY_RUN=1 to print what would change without saving anything.
 // ============================================================
@@ -107,7 +110,7 @@ async function firstScorerSide(final) {
 
 async function updateWeeks(finals) {
   const snap = await db.collection('weeks').get();
-  let filled = 0;
+  let filled = 0, locked = 0;
   for (const doc of snap.docs) {
     const week = doc.data();
     const games = (week.games || []).map(g => ({ ...g }));
@@ -120,9 +123,16 @@ async function updateWeeks(finals) {
       changed = true; filled++;
       console.log(`${week.label || 'Week ' + week.weekNumber}: ${g.away} @ ${g.home} -> ${f.side === 'tie' ? 'TIE' : f.side === 'away' ? g.away : g.home} (${f.awayScore}-${f.homeScore})`);
     }
-    if (changed && !DRY_RUN) await doc.ref.update({ games, autoScoredAt: new Date() });
+    const allDone = games.length > 0 && games.every(g => !!g.winner);
+    const lockNow = allDone && !week.locked;
+    if (lockNow) { locked++; console.log(`${week.label || 'Week ' + week.weekNumber}: every game is final, locking the week.`); }
+    if ((changed || lockNow) && !DRY_RUN) {
+      const update = { games, autoScoredAt: new Date() };
+      if (lockNow) update.locked = true;
+      await doc.ref.update(update);
+    }
   }
-  return filled;
+  return { filled, locked };
 }
 
 async function updateMiniComps(finals) {
@@ -160,5 +170,5 @@ const finals = await loadFinals();
 console.log(`Found ${finals.length} finished NFL games in the last ${DAYS_BACK} days.`);
 const w = await updateWeeks(finals);
 const m = await updateMiniComps(finals);
-console.log(`${DRY_RUN ? '[dry run] would fill' : 'Filled'} ${w} weekly winner(s) and ${m} mini comp result(s).`);
+console.log(`${DRY_RUN ? '[dry run] would fill' : 'Filled'} ${w.filled} weekly winner(s) and ${m} mini comp result(s)${w.locked ? `, and ${DRY_RUN ? 'would lock' : 'locked'} ${w.locked} finished week(s)` : ''}.`);
 process.exit(0);
