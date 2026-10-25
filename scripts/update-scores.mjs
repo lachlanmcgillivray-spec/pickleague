@@ -1,5 +1,5 @@
 // ============================================================
-// AUTO-SCORES-V1 · AUTO-LOCK-V1
+// AUTO-SCORES-V1 · AUTO-LOCK-V1 · TURDUCKEN-V1
 // Runs on a schedule from GitHub Actions (.github/workflows/update-scores.yml).
 // Reads final NFL scores from ESPN's public scoreboard and fills in winners on
 // the site. It only fills in winners that are still blank, so anything the
@@ -8,6 +8,8 @@
 // Also fills in mini comp (Harvest Bowl) results: each game's winner, plus the
 // Golden Drumstick game's final total and who scored first. The coin toss
 // stays manual because ESPN doesn't reliably report it.
+// For the Turducken Tussle it fills in each game's winner, total points and
+// whether it went to overtime.
 //
 // Once every game in a week has a winner, it also locks that week, so nobody has
 // to remember to. (Each game already locks for picks at its own kickoff.)
@@ -72,6 +74,7 @@ async function loadFinals() {
         homeKey: teamKey(home.team.name || home.team.shortDisplayName),
         awayTeamId: away.team.id, homeTeamId: home.team.id,
         winnerSide, awayScore: as, homeScore: hs,
+        overtime: (comp.status.period || 0) > 4 || /OT/i.test(comp.status.type.detail || comp.status.type.shortDetail || ''),
         kickoff: new Date(ev.date).getTime()
       });
     }
@@ -143,6 +146,23 @@ async function updateMiniComps(finals) {
     const ev = doc.data();
     const games = ev.games || [];
     if (!games.length) continue;
+    if (ev.type === 'turducken' || /^turducken/.test(doc.id)) {
+      const res = { ...(ev.results || {}) };
+      res.winners = { ...(res.winners || {}) }; res.totals = { ...(res.totals || {}) }; res.ot = { ...(res.ot || {}) };
+      let changed = false;
+      for (const g of games) {
+        const f = findFinal(finals, g);
+        if (!f) continue;
+        if (!res.winners[g.id]) { res.winners[g.id] = f.side; changed = true; filled++; }
+        if (typeof res.totals[g.id] !== 'number') { res.totals[g.id] = f.awayScore + f.homeScore; changed = true; filled++; }
+        if (typeof res.ot[g.id] !== 'boolean') { res.ot[g.id] = !!f.overtime; changed = true; filled++; }
+      }
+      if (changed) {
+        console.log(`${ev.name || doc.id}: results now`, JSON.stringify(res));
+        if (!DRY_RUN) await doc.ref.update({ results: res, autoScoredAt: new Date() });
+      }
+      continue;
+    }
     const res = { winners: {}, ...(ev.results || {}) };
     res.winners = { ...(res.winners || {}) };
     let changed = false;
