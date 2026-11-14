@@ -1,3 +1,24 @@
+/* Kids' Hub Home button: only shows on family devices that have opened the
+ * hub page (https://lachlanmcgillivray-spec.github.io/), which sets the flag below.
+ * Other league members never see it. Safe to delete this block. */
+(function () {
+  var flag = null;
+  try { flag = window.localStorage.getItem('kidsHubDevice'); } catch (e) {}
+  if (flag !== '1') return;
+  function addHomeButton() {
+    if (document.getElementById('kidsHubHome')) return;
+    var a = document.createElement('a');
+    a.id = 'kidsHubHome';
+    a.href = 'https://lachlanmcgillivray-spec.github.io/';
+    a.setAttribute('aria-label', "Back to Kids' Hub");
+    a.innerHTML = '&#127968; Home';
+    a.style.cssText = "position:fixed;top:10px;left:10px;z-index:9;display:block;padding:8px 14px;border-radius:22px;background:rgba(0,0,0,0.55);color:#fff;font:bold 18px/1.2 'Helvetica Neue',Helvetica,Arial,sans-serif;text-decoration:none;-webkit-box-shadow:0 2px 6px rgba(0,0,0,0.4);box-shadow:0 2px 6px rgba(0,0,0,0.4);";
+    document.body.appendChild(a);
+  }
+  if (document.body) addHomeButton();
+  else document.addEventListener('DOMContentLoaded', addHomeButton);
+})();
+
 // ============================================================
 // Shared helpers: Firebase init, data access, standings math.
 // Loaded after config.js and the Firebase SDK <script> tags.
