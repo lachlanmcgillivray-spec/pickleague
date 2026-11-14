@@ -473,10 +473,10 @@ function renderGames() {
   area.innerHTML = `<div class="team-grid">${teams.map(t => {
     const selected = selectedTeams.includes(t.team);
     const game = currentWeek.games.find(g => g.id === t.gameId);
-    const decided = game?.winner;
+    const decided = game ? game.winner : undefined;
     const isTie = decided === 'tie';
     const won = decided === t.side || isTie;
-    const gameStarted = game?.kickoffAt &&
+    const gameStarted = game && game.kickoffAt &&
       (game.kickoffAt.toDate ? game.kickoffAt.toDate() : new Date(game.kickoffAt)).getTime() <= Date.now();
     const classes = ['team-tile'];
     if (selected) classes.push('selected');

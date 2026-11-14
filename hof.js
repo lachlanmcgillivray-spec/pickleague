@@ -176,10 +176,10 @@ function scoreMiniEntries(ev, entries) {
   });
   const offs = rows.filter(r => r.off !== null).map(r => r.off);
   if (offs.length) { const best = Math.min(...offs); rows.forEach(r => { if (r.off === best) { r.points += 1; r.closest = true; } }); }
-  rows.sort((a, b) => b.points - a.points || (a.off ?? 9999) - (b.off ?? 9999) || a.p.playerName.localeCompare(b.p.playerName));
+  rows.sort((a, b) => b.points - a.points || (a.off == null ? 9999 : a.off) - (b.off == null ? 9999 : b.off) || a.p.playerName.localeCompare(b.p.playerName));
   rows.forEach((r, i) => {
     const prev = rows[i - 1];
-    r.rank = (!prev || prev.points !== r.points || (prev.off ?? 9999) !== (r.off ?? 9999)) ? i + 1 : prev.rank;
+    r.rank = (!prev || prev.points !== r.points || (prev.off == null ? 9999 : prev.off) !== (r.off == null ? 9999 : r.off)) ? i + 1 : prev.rank;
   });
   return rows;
 }

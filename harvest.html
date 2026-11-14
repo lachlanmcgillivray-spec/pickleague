@@ -329,12 +329,12 @@ function buildBoard() {
     });
   }
   rows.sort((a, b) => b.points - a.points
-    || (a.off ?? 9999) - (b.off ?? 9999)
+    || (a.off == null ? 9999 : a.off) - (b.off == null ? 9999 : b.off)
     || a.pick.playerName.localeCompare(b.pick.playerName));
   let rank = 0;
   rows.forEach((r, i) => {
     const prev = rows[i - 1];
-    if (!prev || prev.points !== r.points || (prev.off ?? 9999) !== (r.off ?? 9999)) rank = i + 1;
+    if (!prev || prev.points !== r.points || (prev.off == null ? 9999 : prev.off) !== (r.off == null ? 9999 : r.off)) rank = i + 1;
     r.rank = rank;
   });
   return rows;

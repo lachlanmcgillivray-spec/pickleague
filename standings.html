@@ -291,7 +291,7 @@ async function loadWeekPicks(weekId, totalPlayers) {
           <div style="flex:1;">
             <div class="standings-name">
               ${escapeHtml(p.playerName)}
-              ${playersByIdGlobal[p.playerId]?.kidName ? `<span class="muted" style="font-size:12px; font-weight:400;"> — ${escapeHtml(playersByIdGlobal[p.playerId].kidName)}</span>` : ''}
+              ${(playersByIdGlobal[p.playerId] || {}).kidName ? `<span class="muted" style="font-size:12px; font-weight:400;"> — ${escapeHtml(playersByIdGlobal[p.playerId].kidName)}</span>` : ''}
             </div>
             <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">${teamsHtml}</div>
           </div>
@@ -307,7 +307,7 @@ function renderStandings(standings, playersById) {
     return;
   }
   list.innerHTML = standings.map((s, i) => {
-    const kidName = playersById[s.playerId]?.kidName;
+    const kidName = (playersById[s.playerId] || {}).kidName;
     return `
     <li class="standings-row">
       <div class="jersey-num">${i + 1}</div>
